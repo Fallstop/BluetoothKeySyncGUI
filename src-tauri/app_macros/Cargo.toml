@@ -1,0 +1,11 @@
+[package]
+name = "app_macros"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "1.0", features = ["full"] } # Using "1.0" as it's common; "2.0" also works
+quote = "1.0"

@@ -1,9 +1,72 @@
 <script lang="ts">
-	import { Button } from "$lib/components/ui/button/index.js";
+	import { Button, buttonVariants } from "$lib/components/ui/button/index.js";
 	import * as Card from "$lib/components/ui/card/index.js";
 	import CodeBlock from "@/components/CodeBlock.svelte";
 	import { ExternalLink } from "lucide-svelte";
+	import { open } from '@tauri-apps/plugin-dialog';
+	import * as Dialog from "@/components/ui/dialog";
+	import { rpc } from "@/api";
+
+	let dialogOpen = $state(false);
+
+	let textState = $state();
+
+	async function readHiveFile(path: string | null) {
+		console.log(path);
+		if (dialogOpen) {
+			return;
+		}
+
+		if (!path) {
+			textState = "No file selected.";
+			return;
+		}
+
+		textState = "Processing hive file...";
+
+		dialogOpen = true;
+		let response = await rpc.parse_windows_hive(path);
+		textState = JSON.stringify(response, null, 2);
+	}
+
+	async function selectWindowsDir() {
+		// Open a dialog
+		const file = await open({
+			multiple: false,
+			directory: true,
+			title: "Select the Windows directory",
+
+		});
+
+		readHiveFile(file);
+	}
+
+	async function selectWindowsHiveFile() {
+		// Open a dialog
+		const file = await open({
+			multiple: false,
+			directory: false,
+			title: "Select the Windows hive file",
+
+		});
+
+		readHiveFile(file);
+	}
 </script>
+
+<Dialog.Root open={dialogOpen}>
+  <Dialog.Content class="sm:max-w-[425px]">
+    <Dialog.Header>
+      <Dialog.Title>Edit profile</Dialog.Title>
+      <Dialog.Description>
+        {textState}
+      </Dialog.Description>
+    </Dialog.Header>
+    <Dialog.Footer>
+      <Button type="submit">Save changes</Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>
 
 <Card.Root class="w-full relative">
 	<div class="absolute -top-2 z-100 -left-2 border-2 border-accent rounded-full  p-1 bg-foreground text-background font-bold px-2">
@@ -30,7 +93,7 @@
 		</Card.Description>
 	</Card.Header>
 	<Card.Footer class="flex-row gap-2">
-		<Button type="submit">Select the Windows directory</Button>
-		<Button variant="outline">Select the Hive File</Button>
+		<Button onclick={selectWindowsDir}>Select the Windows directory</Button>
+		<Button onclick={selectWindowsHiveFile} variant="outline">Select the Hive File</Button>
 	</Card.Footer>
 </Card.Root>
