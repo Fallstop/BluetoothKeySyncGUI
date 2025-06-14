@@ -9,6 +9,16 @@ pub struct BluetoothData {
 		pub utc_timestamp: DateTime<Utc>
 }
 
+impl Default for BluetoothData {
+    fn default() -> Self {
+        Self {
+            host: HostDistributions::Linux,
+            controllers: Vec::new(),
+            utc_timestamp: Utc::now(),
+        }
+    }
+}
+
 #[app_macros::ipc_type]
 pub struct BluetoothController {
 		pub name: Option<String>,
