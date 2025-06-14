@@ -26,7 +26,7 @@
 
 		dialogOpen = true;
 		let response = await rpc.parse_windows_hive(path);
-		textState = JSON.stringify(response, null, 2);
+		textState = JSON.stringify(response, null,'\t');
 	}
 
 	async function selectWindowsDir() {
@@ -55,15 +55,18 @@
 </script>
 
 <Dialog.Root open={dialogOpen}>
-  <Dialog.Content class="sm:max-w-[425px]">
+  <Dialog.Content class="w-lg">
     <Dialog.Header>
-      <Dialog.Title>Edit profile</Dialog.Title>
+      <Dialog.Title>Processed Hive file</Dialog.Title>
       <Dialog.Description>
-        {textState}
+				<code>
+					{textState}
+
+				</code>
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer>
-      <Button type="submit">Save changes</Button>
+      <Button type="submit">Continue</Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>

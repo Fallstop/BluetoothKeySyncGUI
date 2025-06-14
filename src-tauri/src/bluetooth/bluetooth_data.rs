@@ -41,7 +41,19 @@ pub enum BluetoothDeviceType {
 #[app_macros::ipc_type]
 pub struct BluetoothDevice {
 	pub name: Option<String>,
-	pub address: [u8; 6],
+	pub address: MacAddress,
 	pub device_type: BluetoothDeviceType,
 	pub link_key: Option<String>,
+	pub le_data: Option<BluetoothLowEnergyKey>,
+
+}
+
+#[app_macros::ipc_type]
+pub struct BluetoothLowEnergyKey {
+	pub identity_resolving_key: Option<String>,
+	pub local_signature_key: Option<String>,
+	pub long_term_key: Option<String>,
+	pub rand: Option<String>,
+	pub ediv: Option<String>,
+
 }

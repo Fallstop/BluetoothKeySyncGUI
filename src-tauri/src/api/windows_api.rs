@@ -53,6 +53,8 @@ impl WindowsApi for WindowsImpl {
             path.to_path_buf()
         };
 
+				println!("Found final path!");
+
 				// Now parse
 				let data = hive_parse::extract_hive_data(&final_path).await;
 				if let Ok(data) = data {
