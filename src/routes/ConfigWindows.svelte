@@ -1,0 +1,36 @@
+<script lang="ts">
+	import { Button } from "$lib/components/ui/button/index.js";
+	import * as Card from "$lib/components/ui/card/index.js";
+	import CodeBlock from "@/components/CodeBlock.svelte";
+	import { ExternalLink } from "lucide-svelte";
+</script>
+
+<Card.Root class="w-full relative">
+	<div class="absolute -top-2 z-100 -left-2 border-2 border-accent rounded-full  p-1 bg-foreground text-background font-bold px-2">
+		1
+	</div>
+	<Card.Header>
+		<Card.Title>Select your Windows drive</Card.Title>
+		<Card.Description>
+			We need to scan the Windows OS drive to find the Bluetooth keys.
+			<br />
+			Please select the base directory of your mounted Windows installation, alternatively,
+			you can directly select the <CodeBlock>SYSTEM</CodeBlock> hive file usually
+			found at <CodeBlock>/Windows/System32/config</CodeBlock>.
+			<Button
+				href="https://phoenixnap.com/kb/mount-ntfs-linux"
+				target="_blank"
+				referrerpolicy="no-referrer"
+				variant="link"
+			>
+				<ExternalLink />
+				How do I mount the windows drive?
+			</Button>
+
+		</Card.Description>
+	</Card.Header>
+	<Card.Footer class="flex-row gap-2">
+		<Button type="submit">Select the Windows directory</Button>
+		<Button variant="outline">Select the Hive File</Button>
+	</Card.Footer>
+</Card.Root>
