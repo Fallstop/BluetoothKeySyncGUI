@@ -7,6 +7,7 @@ use tokio::task; // Added for spawn_blocking
 use crate::bluetooth::bluetooth_data::{BluetoothController, BluetoothData, BluetoothDevice, BluetoothDeviceType, BluetoothLowEnergyKey, HostDistributions};
 
 pub async fn extract_hive_data(hive_path: &Path) -> Result<BluetoothData, Box<dyn std::error::Error + Send + Sync>> {
+		let hive_path_str = hive_path.to_string_lossy().to_string();
     let path_buf = hive_path.to_path_buf();
 
     // Use spawn_blocking to run the blocking code in a separate thread
@@ -114,6 +115,7 @@ pub async fn extract_hive_data(hive_path: &Path) -> Result<BluetoothData, Box<dy
 							host: HostDistributions::Windows,
 							controllers: controllers,
 							utc_timestamp: Utc::now(),
+							source_path: hive_path_str,
 						});
 					}
 				}

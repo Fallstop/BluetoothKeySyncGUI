@@ -6,7 +6,7 @@ type TAURI_CHANNEL<T> = (response: T) => void
 
 export type BluetoothController = { name: string | null; address: string; devices: BluetoothDevice[] }
 
-export type BluetoothData = { host: HostDistributions; controllers: BluetoothController[]; utc_timestamp: string }
+export type BluetoothData = { host: HostDistributions; controllers: BluetoothController[]; utc_timestamp: string; source_path: string }
 
 export type BluetoothDevice = { name: string | null; address: string; device_type: BluetoothDeviceType; link_key: string | null; le_data: BluetoothLowEnergyKey | null }
 
@@ -16,7 +16,7 @@ export type BluetoothLowEnergyKey = { identity_resolving_key: string | null; loc
 
 export type HostDistributions = "Windows" | "Linux"
 
-export type Message<T> = { Success: T } | { Error: string }
+export type Message<T> = { type: "Success"; data: T } | { type: "Error"; data: string }
 
 const ARGS_MAP = { '':'{"parse_windows_hive":["path_str"]}' }
 export type Router = { "": {parse_windows_hive: (pathStr: string) => Promise<Message<BluetoothData>>} };

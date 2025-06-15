@@ -6,7 +6,8 @@ use mac_address::MacAddress;
 pub struct BluetoothData {
 		pub host: HostDistributions,
 		pub controllers: Vec<BluetoothController>,
-		pub utc_timestamp: DateTime<Utc>
+		pub utc_timestamp: DateTime<Utc>,
+		pub source_path: String,
 }
 
 impl Default for BluetoothData {
@@ -15,6 +16,7 @@ impl Default for BluetoothData {
             host: HostDistributions::Linux,
             controllers: Vec::new(),
             utc_timestamp: Utc::now(),
+						source_path: "".to_string(),
         }
     }
 }
