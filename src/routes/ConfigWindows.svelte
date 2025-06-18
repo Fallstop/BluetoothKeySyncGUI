@@ -2,15 +2,19 @@
 	import { Button, buttonVariants } from "$lib/components/ui/button/index.js";
 	import * as Card from "$lib/components/ui/card/index.js";
 	import CodeBlock from "@/components/CodeBlock.svelte";
-	import { ExternalLink } from "lucide-svelte";
+	import BluetoothDevicesTree from "@/components/BluetoothDevicesTree.svelte";
+	import { ExternalLink, CheckCircle, Bluetooth } from "lucide-svelte";
 	import { open } from '@tauri-apps/plugin-dialog';
 	import * as Dialog from "@/components/ui/dialog";
 	import { rpc } from "@/api";
 	import { windowsState } from "@/state";
+	import type { BluetoothData } from "#root/bindings";
 
 	let dialogOpen = $state(false);
-
 	let textState = $state();
+
+	// @hmr:keep
+	let bluetoothData = $state<BluetoothData | null>(null);
 
 	async function readHiveFile(path: string | null) {
 		console.log(path);
@@ -35,6 +39,7 @@
 
 		textState = JSON.stringify(response, null,'\t');
 		windowsState.state.lastWindowsHiveFile = response.data.source_path;
+		bluetoothData = response.data;
 	}
 
 	async function selectWindowsDir() {
@@ -76,6 +81,8 @@
 
 		readHiveFile(file);
 	}
+
+
 </script>
 
 <Dialog.Root open={dialogOpen} onOpenChange={(open) => {
@@ -84,18 +91,30 @@
 		textState = "";
 	}
 }}>
-  <Dialog.Content class="w-lg">
+  <Dialog.Content class="max-w-4xl max-h-[80vh] overflow-y-auto">
     <Dialog.Header>
-      <Dialog.Title>Processed Hive file</Dialog.Title>
+      <Dialog.Title>Bluetooth Devices Found</Dialog.Title>
       <Dialog.Description>
-				<code>
-					{textState}
-
-				</code>
+				{#if bluetoothData}
+        Successfully extracted {bluetoothData.controllers.reduce((_,y)=>y.devices.length,0)} devices.
+				{/if}
       </Dialog.Description>
     </Dialog.Header>
+
+    {#if bluetoothData}
+      <div class="py-4">
+        <BluetoothDevicesTree data={bluetoothData} />
+      </div>
+    {:else if textState}
+      <div class="py-4">
+        <pre class="text-xs overflow-x-auto bg-muted p-4 rounded">
+          {textState}
+        </pre>
+      </div>
+    {/if}
+
     <Dialog.Footer>
-      <Button type="submit">Continue</Button>
+      <Button onclick={() => dialogOpen = false}>Done</Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
@@ -104,8 +123,15 @@
 	<div class="absolute -top-2 z-100 -left-2 border-2 border-accent rounded-full  p-1 bg-foreground text-background font-bold px-2">
 		1
 	</div>
+	{#if bluetoothData}
+		<div class="absolute -top-2 -right-2 border-2 border-green-500 rounded-full p-1 bg-green-500 text-white">
+			<CheckCircle class="h-4 w-4" />
+		</div>
+	{/if}
 	<Card.Header>
-		<Card.Title>Select your Windows drive</Card.Title>
+		<Card.Title class="flex items-center gap-2">
+			Select your Windows drive
+		</Card.Title>
 		<Card.Description>
 			We need to scan the Windows OS drive to find the Bluetooth keys.
 			<br />
@@ -125,8 +151,24 @@
 
 		</Card.Description>
 	</Card.Header>
-	<Card.Footer class="flex-row gap-2">
-		<Button onclick={selectWindowsDir}>Select the Windows directory</Button>
-		<Button onclick={selectWindowsHiveFile} variant="outline">Select the Hive File</Button>
+	<Card.Footer class="flex-row gap-2 {bluetoothData ? 'justify-between' : ''}">
+		{#if bluetoothData}
+		<div class="border rounded-lg p-3 flex-1">
+				<Bluetooth class="h-4 w-4" />
+				<div>
+					<div class="font-medium">
+						Windows Bluetooth Data
+					</div>
+					<div class="text-sm text-muted-foreground">
+						<!-- {controller.address} • {controller.devices.length} device(s) -->
+					</div>
+				</div>
+		</div>
+			<Button onclick={selectWindowsHiveFile} variant="outline">Clear Data</Button>
+		{:else}
+			<Button onclick={selectWindowsDir}>Select the Windows directory</Button>
+			<Button onclick={selectWindowsHiveFile} variant="outline">Select the Hive File</Button>
+		{/if}
 	</Card.Footer>
 </Card.Root>
+

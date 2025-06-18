@@ -1,4 +1,6 @@
 import { RuneStore, type State } from '@tauri-store/svelte';
+import type { BluetoothData, HostDistributions } from '#root/bindings';
+import { SvelteMap } from 'svelte/reactivity';
 
 interface WindowsState extends State {
 	lastWindowsDirectory: string | null;
@@ -6,7 +8,8 @@ interface WindowsState extends State {
 }
 
 export const windowsState = new RuneStore<WindowsState>('windowsState', {
-	lastWindowsDirectory: null, lastWindowsHiveFile: null
+	lastWindowsDirectory: null,
+	lastWindowsHiveFile: null
 }, {
 	autoStart: true,
 	saveOnChange: true,
@@ -16,3 +19,13 @@ export const windowsState = new RuneStore<WindowsState>('windowsState', {
   saveStrategy: 'debounce',
   saveInterval: 500,
 });
+
+interface BtStore extends State {
+	windows: BluetoothData | null;
+	linux: BluetoothData | null;
+}
+
+// export const btStore = $state<BtStore>({
+// 	windows: null,
+// 	linux: null
+// });
