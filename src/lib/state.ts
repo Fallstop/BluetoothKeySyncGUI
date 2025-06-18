@@ -25,7 +25,13 @@ interface BtStore extends State {
 	linux: BluetoothData | null;
 }
 
-// export const btStore = $state<BtStore>({
-// 	windows: null,
-// 	linux: null
-// });
+// Don't persis the bluetooth data, for security reasons.
+export const btStore = new RuneStore<BtStore>('btStore', {
+	windows: null,
+	linux: null
+}, {
+	autoStart: true,
+	saveOnChange: false,
+	saveOnExit: false,
+
+});

@@ -34,6 +34,7 @@
     "@tailwindcss/vite": "^4.0.0",
     "@tauri-apps/cli": "^2",
     "bits-ui": "^2.7.0",
+    "sass-embedded": "^1.89.2",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",
     "tailwind-variants": "^1.0.0",
