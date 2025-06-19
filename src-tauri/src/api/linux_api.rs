@@ -1,7 +1,22 @@
+use std::path::PathBuf;
+
 use bluetooth_model::BluetoothData;
-use tauri::{AppHandle, Manager, Runtime};
+use elevated_command::Command;
+use std::process::Command as StdCommand;
+use tauri::{utils::platform, AppHandle, Manager, Runtime};
 
 use crate::api::message::Message;
+
+fn relative_command_path(command: &str) -> PathBuf {
+    match platform::current_exe().unwrap().parent() {
+        #[cfg(windows)]
+        Some(exe_dir) => exe_dir.join(command).with_extension("exe"),
+        #[cfg(not(windows))]
+        Some(exe_dir) => exe_dir.join(command),
+        None => unimplemented!(),
+    }
+}
+
 
 #[taurpc::procedures(path = "linux")]
 pub trait LinuxApi {
@@ -17,10 +32,29 @@ impl LinuxApi for LinuxApiImpl {
         self,
         app_handle: AppHandle<R>,
     ) -> Message<BluetoothData> {
-        // let asset_thing =  app_handle.shell().;
+				let path = relative_command_path("elevated_scrapper");
 
-        let data = BluetoothData::default();
+				let is_elevated = Command::is_elevated();
 
-        Message::Error("Linux API not implemented yet".to_string())
+				let mut cmd = StdCommand::new(path);
+				cmd.arg("scan");
+
+				let output = if is_elevated {
+						cmd.output().unwrap()
+				} else {
+						let elevated_cmd = Command::new(cmd);
+						elevated_cmd.output().unwrap()
+				};
+
+				println!("Output: {:?}", output);
+
+        let data = serde_json::from_slice::<BluetoothData>(&output.stdout);
+
+				if let Err(e) = data {
+						return Message::Error(format!("Failed to parse Bluetooth data: {}", e));
+				}
+
+
+        Message::Success(data.unwrap())
     }
 }

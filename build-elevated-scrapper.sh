@@ -7,9 +7,9 @@ set -e
 
 echo "Building elevated scrapper binary..."
 
-BASE_DIR="$(dirname "$0")/src-tauri/elevated_scrapper_standalone"
+BASE_DIR="$(dirname "$0")/src-tauri"
 
-cargo rustc --release --bin elevated_scrapper --manifest-path "$BASE_DIR/Cargo.toml"
+cargo rustc --release --bin elevated_scrapper --manifest-path "$BASE_DIR/elevated_scrapper_standalone/Cargo.toml"
 
 TARGET_TRIPLE="x86_64-unknown-linux-gnu"
 

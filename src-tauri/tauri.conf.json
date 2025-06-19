@@ -32,7 +32,7 @@
       "icons/icon.ico"
     ],
     "externalBin": [
-      "./elevated_scrapper_standalone/target/release/elevated_scrapper"
+      "./target/release/elevated_scrapper"
     ]
   }
 }
