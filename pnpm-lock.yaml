@@ -1,5 +1,9 @@
 lockfileVersion: '6.0'
 
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
 onlyBuiltDependencies:
   - esbuild
 
@@ -13,6 +17,9 @@ dependencies:
   '@tauri-apps/plugin-opener':
     specifier: ^2
     version: 2.2.7
+  '@tauri-apps/plugin-shell':
+    specifier: ~2
+    version: 2.2.2
   '@tauri-store/svelte':
     specifier: ^2.6.0
     version: 2.6.0
@@ -1007,6 +1014,12 @@ packages:
       '@tauri-apps/api': 2.5.0
     dev: false
 
+  /@tauri-apps/plugin-shell@2.2.2:
+    resolution: {integrity: sha512-fg9XKWfzRQsN8p+Zrk82WeHvXFvGVnG0/mTlujQdLWNnO5cM6WD9qCrHbFytScVS+WhmRAkuypQPcxeKKl3VBg==}
+    dependencies:
+      '@tauri-apps/api': 2.5.0
+    dev: false
+
   /@tauri-store/shared@0.9.0:
     resolution: {integrity: sha512-eQzBGHR1I/MTfRQeKWBzibKPeXpOqtXxmWSkW3S9GDzS3hLzyrgPJK+bez1U1wrP9fKVmUFYpYinU5UQC3B1nw==}
     dependencies:
@@ -1947,7 +1960,3 @@ packages:
 
   /zimmerframe@1.1.2:
     resolution: {integrity: sha512-rAbqEGa8ovJy4pyBxZM70hg4pE6gDgaQ0Sl9M3enG3I0d6H4XSAM3GeNGLKnsBpuijUow064sf7ww1nutC5/3w==}
-
-settings:
-  autoInstallPeers: true
-  excludeLinksFromLockfile: false

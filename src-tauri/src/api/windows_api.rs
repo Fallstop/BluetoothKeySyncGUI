@@ -1,12 +1,14 @@
 use std::{fs, path::Path};
 
-use crate::{api::message::Message, bluetooth::{bluetooth_data::BluetoothData, hive_parse}};
+use bluetooth_model::BluetoothData;
+
+use crate::{api::message::Message, bluetooth::hive_parse};
 
 pub struct WindowsHiveData {
     pub path: String,
 }
 
-#[taurpc::procedures()]
+#[taurpc::procedures(path = "windows")]
 pub trait WindowsApi {
     async fn parse_windows_hive(path_str: String) -> Message<BluetoothData>;
 }
@@ -53,15 +55,15 @@ impl WindowsApi for WindowsImpl {
             path.to_path_buf()
         };
 
-				println!("Found final path!");
+        println!("Found final path!");
 
-				// Now parse
-				let data = hive_parse::extract_hive_data(&final_path).await;
-				if let Ok(data) = data {
-						return Message::Success(data);
-				} else if let Err(error) = data {
-						return Message::Error(error.to_string());
-				}
+        // Now parse
+        let data = hive_parse::extract_hive_data(&final_path).await;
+        if let Ok(data) = data {
+            return Message::Success(data);
+        } else if let Err(error) = data {
+            return Message::Error(error.to_string());
+        }
 
         return Message::Error(String::from(final_path.to_string_lossy()));
     }

@@ -26,7 +26,7 @@
 		}
 
 		dialogOpen = true;
-		let response = await rpc.parse_windows_hive(path);
+		let response = await rpc.windows.parse_windows_hive(path);
 
 		if (response.type === "Error") {
 			console.error("Error processing hive file:", response.data);

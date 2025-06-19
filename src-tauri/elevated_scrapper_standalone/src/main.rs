@@ -1,13 +1,8 @@
-
 use std::fs;
 use std::path::Path;
 
+use bluetooth_model::BluetoothData;
 use serde::Serialize;
-
-#[derive(Serialize)]
-struct BluetoothData {
-    placeholder: String,
-}
 
 fn main() {
     let data = read_bluetooth_data();
@@ -17,8 +12,5 @@ fn main() {
 }
 
 fn read_bluetooth_data() -> BluetoothData {
-    BluetoothData {
-        placeholder: "e.".to_string(),
-    }
+    BluetoothData::default()
 }
-

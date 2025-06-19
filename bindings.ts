@@ -18,8 +18,9 @@ export type HostDistributions = "Windows" | "Linux"
 
 export type Message<T> = { type: "Success"; data: T } | { type: "Error"; data: string }
 
-const ARGS_MAP = { '':'{"parse_windows_hive":["path_str"]}' }
-export type Router = { "": {parse_windows_hive: (pathStr: string) => Promise<Message<BluetoothData>>} };
+const ARGS_MAP = { 'linux':'{"parse_local_config":[]}', 'windows':'{"parse_windows_hive":["path_str"]}' }
+export type Router = { "linux": {parse_local_config: () => Promise<Message<BluetoothData>>},
+"windows": {parse_windows_hive: (pathStr: string) => Promise<Message<BluetoothData>>} };
 
 
 export const createTauRPCProxy = () => createProxy<Router>(ARGS_MAP)
