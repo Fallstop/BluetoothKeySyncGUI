@@ -36,7 +36,17 @@
 >
 	<Dialog.Content class="max-w-4xl max-h-[80vh] overflow-y-auto">
 		<Dialog.Header>
-			<Dialog.Title>Bluetooth Devices Found</Dialog.Title>
+			<Dialog.Title>
+				{#if btStore.state.linux}
+					{#if btStore.state.linux.controllers.length > 0}
+						Bluetooth Devices Found
+					{:else}
+						No Bluetooth data found
+					{/if}
+				{:else}
+					Analysing stored bluetooth configuration
+				{/if}
+			</Dialog.Title>
 			<Dialog.Description>
 				{#if btStore.state.linux}
 					Successfully extracted {btStore.state.linux.controllers.reduce(
@@ -59,7 +69,7 @@
 			</div>
 		{:else}
 			<div class="py-4">
-			Processing hive file...
+			Starting permission scrapper...
 			</div>
 			<div class="py-4">
 				<Progress value={null}  />

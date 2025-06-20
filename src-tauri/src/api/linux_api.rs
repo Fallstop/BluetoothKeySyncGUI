@@ -20,7 +20,7 @@ fn relative_command_path(command: &str) -> PathBuf {
 
 #[taurpc::procedures(path = "linux")]
 pub trait LinuxApi {
-    async fn parse_local_config<R: Runtime>(app_handle: AppHandle<R>) -> Message<BluetoothData>;
+    async fn parse_local_config() -> Message<BluetoothData>;
 }
 
 #[derive(Clone)]
@@ -28,9 +28,8 @@ pub struct LinuxApiImpl;
 
 #[taurpc::resolvers]
 impl LinuxApi for LinuxApiImpl {
-    async fn parse_local_config<R: Runtime>(
+    async fn parse_local_config(
         self,
-        app_handle: AppHandle<R>,
     ) -> Message<BluetoothData> {
 				let path = relative_command_path("elevated_scrapper");
 
@@ -42,7 +41,8 @@ impl LinuxApi for LinuxApiImpl {
 				let output = if is_elevated {
 						cmd.output().unwrap()
 				} else {
-						let elevated_cmd = Command::new(cmd);
+						let mut elevated_cmd = Command::new(cmd);
+						elevated_cmd.name("Bluetooth Key Sync".to_string());
 						elevated_cmd.output().unwrap()
 				};
 
