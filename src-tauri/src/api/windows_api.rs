@@ -4,9 +4,6 @@ use bluetooth_model::BluetoothData;
 
 use crate::{api::message::Message, bluetooth::hive_parse};
 
-pub struct WindowsHiveData {
-    pub path: String,
-}
 
 #[taurpc::procedures(path = "windows")]
 pub trait WindowsApi {

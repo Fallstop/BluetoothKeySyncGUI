@@ -37,6 +37,10 @@ impl LinuxApi for LinuxApiImpl {
 
 				let mut cmd = StdCommand::new(path);
 				cmd.arg("scan");
+				cmd.arg("--privileged");
+
+
+				println!("Running command: {:?}", cmd);
 
 				let output = if is_elevated {
 						cmd.output().unwrap()

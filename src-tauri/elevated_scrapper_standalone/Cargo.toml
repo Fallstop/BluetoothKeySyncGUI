@@ -10,3 +10,4 @@ bluetooth_model = { path = "../bluetooth_model" }
 sudo = "0.6.0"
 chrono = {version = "0.4.41", features = ["serde"] }
 mac_address = {version = "1.1.8",  features = ["serde"] }
+clap = { version = "4.5.40", features = ["derive"] }
