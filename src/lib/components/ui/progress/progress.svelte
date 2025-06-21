@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Progress as ProgressPrimitive } from "bits-ui";
+	import { Progress } from "bits-ui";
 	import { cn, type WithoutChildrenOrChild } from "$lib/utils.js";
 
 	let {
@@ -8,10 +8,10 @@
 		max = 100,
 		value,
 		...restProps
-	}: WithoutChildrenOrChild<ProgressPrimitive.RootProps> = $props();
+	}: WithoutChildrenOrChild<Progress.RootProps> = $props();
 </script>
 
-<ProgressPrimitive.Root
+<Progress.Root
 	bind:ref
 	data-slot="progress"
 	class={cn("bg-primary/20 relative h-2 w-full overflow-hidden rounded-full", className)}
@@ -24,7 +24,7 @@
 		class="bg-primary h-full w-full flex-1 transition-all {value === null ? 'indeterminate-progress' : ''}"
 		style="{value === null ? '' : `transform: translateX(-${100 - (100 * (value ?? 0)) / (max ?? 1)}%)`}"
 	></div>
-</ProgressPrimitive.Root>
+</Progress.Root>
 
 <style lang="scss">
 	.indeterminate-progress {

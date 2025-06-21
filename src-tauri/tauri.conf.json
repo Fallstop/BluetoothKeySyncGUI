@@ -4,17 +4,17 @@
   "version": "0.1.0",
   "identifier": "nz.jmw.bluetooth-key-sync",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "./build-elevated-scrapper.sh && pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "./build-elevated-scrapper.sh && pnpm build",
     "frontendDist": "../build"
   },
   "app": {
     "windows": [
       {
         "title": "bluetooth-key-sync",
-        "width": 800,
-        "height": 600
+        "width": 1200,
+        "height": 960
       }
     ],
     "security": {

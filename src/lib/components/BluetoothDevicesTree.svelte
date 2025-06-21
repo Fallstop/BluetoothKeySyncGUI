@@ -29,13 +29,16 @@
 
 
 		<div class="space-y-2">
-			{#each data.controllers as controller}
+			{#each data.controllers.toSorted((a,b)=>b.devices.length-a.devices.length) as controller}
 				<div class="border rounded-lg p-3">
 					<button
 						class="flex items-center gap-2 w-full text-left hover:bg-muted/50 rounded p-2 -m-2"
+						disabled={!controller.devices.length}
 						onclick={() => toggleController(controller.address)}
 					>
-						{#if expandedControllers.has(controller.address)}
+						{#if !controller.devices.length}
+							<span class="h-4 w-4"></span>
+						{:else if expandedControllers.has(controller.address)}
 							<ChevronDown class="h-4 w-4" />
 						{:else}
 							<ChevronRight class="h-4 w-4" />

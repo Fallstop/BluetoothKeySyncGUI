@@ -1,8 +1,4 @@
-use std::fs;
-use std::path::Path;
-
 use bluetooth_model::{BluetoothData, HostDistributions};
-use serde::Serialize;
 
 mod info_model;
 mod scan_filesystem;
@@ -34,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data = read_bluetooth_data();
 
     let json_output = serde_json::to_string(&data).expect("Failed to serialize data");
-    eprintln!("{}", json_output);
+    print!("{}", json_output);
 
     Ok(())
 }

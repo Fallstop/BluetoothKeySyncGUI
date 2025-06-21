@@ -3,7 +3,6 @@ use std::{fs, path::Path, str::FromStr};
 use bluetooth_model::{BluetoothController, BluetoothDevice, BluetoothDeviceType};
 use mac_address::MacAddress;
 
-
 pub fn scan_filesystem() -> Result<Vec<BluetoothController>, Box<dyn std::error::Error>> {
     let mut controllers = Vec::new();
 
@@ -15,7 +14,7 @@ pub fn scan_filesystem() -> Result<Vec<BluetoothController>, Box<dyn std::error:
 
         if path.is_dir() {
             if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                println!("Found controller: {}", name);
+                eprintln!("Found controller: {}", name);
                 // Attempt to scan controller files
                 let controller = scan_controller_files(&path, name);
 
@@ -40,37 +39,43 @@ fn scan_controller_files(
 ) -> Result<BluetoothController, Box<dyn std::error::Error>> {
     let mac_address = MacAddress::from_str(file_name)?;
 
-		let mut devices = Vec::new();
+    let mut devices = Vec::new();
 
     // Scan for devices
     for entry in fs::read_dir(controller_path)? {
         let entry = entry?;
         let path = entry.path();
-        if !path.is_dir() {continue;}
+        if !path.is_dir() {
+            continue;
+        }
 
-				let device_address = MacAddress::from_str(path.file_name().and_then(|n| n.to_str()).unwrap_or_default());
-				if device_address.is_err() {
-						println!("Skipping non-device directory: {}", path.display());
-						continue;
-				}
-				let device_address = device_address.unwrap();
-				println!("Found device: {}", device_address);
+        let device_address = MacAddress::from_str(
+            path.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default(),
+        );
+        if device_address.is_err() {
+            eprintln!("Skipping non-device directory: {}", path.display());
+            continue;
+        }
+        let device_address = device_address.unwrap();
+        eprintln!("Found device: {}", device_address);
 
         // Device file will be `./info`
-				let info_file = path.join("info");
-				if info_file.exists() {
-						if let Ok(device) = extract_device_details(&info_file, device_address) {
-								devices.push(device);
-						} else {
-								println!("Failed to extract device details from {}", info_file.display());
-						}
-				} else {
-						println!("No .info file found for device in {}", path.display());
-				}
-
-
+        let info_file = path.join("info");
+        if info_file.exists() {
+            if let Ok(device) = extract_device_details(&info_file, device_address) {
+                devices.push(device);
+            } else {
+                eprintln!(
+                    "Failed to extract device details from {}",
+                    info_file.display()
+                );
+            }
+        } else {
+            eprintln!("No .info file found for device in {}", path.display());
+        }
     }
-
 
     Ok(BluetoothController {
         name: Some(file_name.to_string()),
@@ -80,22 +85,19 @@ fn scan_controller_files(
 }
 
 fn extract_device_details(
-		device_path: &Path,
-		address: MacAddress,
+    device_path: &Path,
+    address: MacAddress,
 ) -> Result<BluetoothDevice, Box<dyn std::error::Error>> {
+    let content = fs::read_to_string(&device_path)?;
+    if content.is_empty() {
+        return Err("Device info file is empty".into());
+    }
 
-	let content = fs::read_to_string(&device_path)?;
-	if content.is_empty() {
-		return Err("Device info file is empty".into());
-	}
-
-
-
-	return Ok(BluetoothDevice {
-		name: None,
-		address,
-		device_type: BluetoothDeviceType::Classic,
-		link_key: None,
-		le_data: None,
-	});
+    return Ok(BluetoothDevice {
+        name: None,
+        address,
+        device_type: BluetoothDeviceType::Classic,
+        link_key: None,
+        le_data: None,
+    });
 }

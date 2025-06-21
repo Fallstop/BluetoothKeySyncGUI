@@ -130,7 +130,7 @@
 
 <Card.Root class="w-full relative">
 	<div
-		class="absolute -top-2 z-100 -left-2 border-2 border-accent rounded-full p-1 bg-foreground text-background font-bold px-2"
+		class="absolute -top-2 z-10 -left-2 border-1 border-accent-foreground rounded-full p-1 bg-accent font-bold px-2 w-8 h-8 flex justify-center items-center"
 	>
 		1
 	</div>
@@ -138,11 +138,11 @@
 		<div
 			class="absolute -top-2 -right-2 border-2 border-green-500 rounded-full p-1 bg-green-500 text-white"
 		>
-			<CheckCircle class="h-4 w-4" />
+			<CheckCircle class="h-5 w-5" />
 		</div>
 	{/if}
 	<Card.Header>
-		<Card.Title class="flex items-center gap-2">
+		<Card.Title class={ btStore.state.linux ? "line-through opacity-80" : ""}>
 			Select your Windows drive
 		</Card.Title>
 		<Card.Description>
