@@ -3,6 +3,8 @@ use std::{fs, path::Path, str::FromStr};
 use bluetooth_model::{BluetoothController, BluetoothDevice, BluetoothDeviceType};
 use mac_address::MacAddress;
 
+use crate::info_model::Info;
+
 pub fn scan_filesystem() -> Result<Vec<BluetoothController>, Box<dyn std::error::Error>> {
     let mut controllers = Vec::new();
 
@@ -93,11 +95,30 @@ fn extract_device_details(
         return Err("Device info file is empty".into());
     }
 
-    return Ok(BluetoothDevice {
-        name: None,
-        address,
-        device_type: BluetoothDeviceType::Classic,
-        link_key: None,
-        le_data: None,
-    });
+    let info: Info = toml::from_str(&content).map_err(|e| {
+        eprintln!("Failed to parse device info file {}: {}", device_path.display(), e);
+        e
+    })?;
+
+    let name = info.general.name.or(info.general.alias);
+
+    if info.link_key.is_some() && !info.link_key.as_ref().unwrap().key.is_empty() {
+
+        // Classic Bluetooth device
+        Ok(BluetoothDevice {
+            name: name,
+            address,
+            device_type: BluetoothDeviceType::Classic,
+            link_key: None,
+            le_data: None,
+        })
+    } else {
+        Ok(BluetoothDevice {
+            name: name,
+            address,
+            device_type: BluetoothDeviceType::LowEnergy,
+            link_key: None,
+            le_data: None,
+        })
+    }
 }

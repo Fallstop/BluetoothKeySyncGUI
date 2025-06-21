@@ -37,6 +37,7 @@ pub enum HostDistributions {
 pub enum BluetoothDeviceType {
     Classic,
     LowEnergy,
+    DualMode,
 }
 
 #[app_macros::ipc_type]
