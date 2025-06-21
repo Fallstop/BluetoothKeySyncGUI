@@ -1121,9 +1121,8 @@ dependencies = [
  "mac_address",
  "serde",
  "serde_json",
+ "serini",
  "sudo",
- "toml",
- "toml_edit 0.22.27",
 ]
 
 [[package]]
@@ -3770,6 +3769,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "serini"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "100dc0988a152e13846185ec7e6246d40463338c4a1d01b116e54bf48046a49a"
+dependencies = [
+ "serde",
+ "thiserror 2.0.12",
 ]
 
 [[package]]

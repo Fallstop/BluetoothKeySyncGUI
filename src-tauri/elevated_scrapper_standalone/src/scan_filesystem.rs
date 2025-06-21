@@ -95,14 +95,14 @@ fn extract_device_details(
         return Err("Device info file is empty".into());
     }
 
-    let info: Info = toml::from_str(&content).map_err(|e| {
-        eprintln!("Failed to parse device info file {}: {}", device_path.display(), e);
+    let info: Info = serini::from_str(&content).map_err(|e| {
+        eprintln!("Failed to parse device info file {}: {}", address, e);
         e
     })?;
 
-    let name = info.general.name.or(info.general.alias);
+    let name = info.general.name;
 
-    if info.link_key.is_some() && !info.link_key.as_ref().unwrap().key.is_empty() {
+    // if info.link_key.is_some() && !info.link_key.as_ref().unwrap().key.is_empty() {
 
         // Classic Bluetooth device
         Ok(BluetoothDevice {
@@ -112,13 +112,13 @@ fn extract_device_details(
             link_key: None,
             le_data: None,
         })
-    } else {
-        Ok(BluetoothDevice {
-            name: name,
-            address,
-            device_type: BluetoothDeviceType::LowEnergy,
-            link_key: None,
-            le_data: None,
-        })
-    }
+    // } else {
+    //     Ok(BluetoothDevice {
+    //         name: name,
+    //         address,
+    //         device_type: BluetoothDeviceType::LowEnergy,
+    //         link_key: None,
+    //         le_data: None,
+    //     })
+    // }
 }

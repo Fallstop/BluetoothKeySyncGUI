@@ -7,22 +7,22 @@ use serde::{Deserialize, Serialize};
 pub struct Info {
     #[serde(rename = "General")]
     pub general: General,
-    #[serde(rename = "DeviceID")]
-    pub device_id: Option<DeviceID>,
+    // #[serde(rename = "DeviceID")]
+    // pub device_id: Option<DeviceID>,
     #[serde(rename = "LinkKey")]
     pub link_key: Option<LinkKey>,
-    #[serde(rename = "LongTermKey")]
-    pub long_term_key: Option<LongTermKey>,
-    #[serde(rename = "PeripheralLongTermKey")]
-    pub peripheral_long_term_key: Option<LongTermKey>,
-    #[serde(rename = "ConnectionParameters")]
-    pub connection_parameters: Option<ConnectionParameters>,
-    #[serde(rename = "LocalSignatureKey")]
-    pub local_signature_key: Option<SignatureKey>,
-    #[serde(rename = "RemoteSignatureKey")]
-    pub remote_signature_key: Option<SignatureKey>,
-    #[serde(rename = "ServiceChanged")]
-    pub service_changed: Option<ServiceChanged>,
+    // #[serde(rename = "LongTermKey")]
+    // pub long_term_key: Option<LongTermKey>,
+    // #[serde(rename = "PeripheralLongTermKey")]
+    // pub peripheral_long_term_key: Option<LongTermKey>,
+    // #[serde(rename = "ConnectionParameters")]
+    // pub connection_parameters: Option<ConnectionParameters>,
+    // #[serde(rename = "LocalSignatureKey")]
+    // pub local_signature_key: Option<SignatureKey>,
+    // #[serde(rename = "RemoteSignatureKey")]
+    // pub remote_signature_key: Option<SignatureKey>,
+    // #[serde(rename = "ServiceChanged")]
+    // pub service_changed: Option<ServiceChanged>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq)]

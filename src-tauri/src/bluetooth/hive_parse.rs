@@ -60,7 +60,7 @@ pub async fn extract_hive_data(
                         let devices = parse_controller_devices(&subkey.borrow(), &root_key, &mut hive)?;
 
                         let controller = BluetoothController {
-                            name: Some(controller_address.clone()),
+                            name: None,
                             address: MacAddress::from_str(&controller_address)
                                 .unwrap_or(MacAddress::default()),
                             devices,

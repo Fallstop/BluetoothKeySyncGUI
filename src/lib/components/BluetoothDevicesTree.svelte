@@ -46,7 +46,7 @@
 						<Bluetooth class="h-4 w-4" />
 						<div>
 							<div class="font-medium">
-								{controller.name || 'Unknown Controller'}
+								{controller.name || 'Bluetooth Controller'}
 							</div>
 							<div class="text-sm text-muted-foreground">
 								{controller.address} • {controller.devices.length} device(s)

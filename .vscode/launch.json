@@ -1,0 +1,29 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Elevated Scraper Standalone",
+            "cargo": {
+                "args": [
+                    "run",
+                ],
+                "cwd": "${workspaceFolder}/src-tauri/elevated_scrapper_standalone"
+            },
+            "terminal": "integrated",
+            "cwd": "${workspaceFolder}/src-tauri/elevated_scrapper_standalone",
+            // Have to temporarily take over the bluetooth directory, changing perms from 700 -> 777
+            "args": [
+                "scan",
+                "--privileged"
+            ],
+
+        },
+
+
+    ]
+}
