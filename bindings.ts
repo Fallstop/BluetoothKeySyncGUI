@@ -8,11 +8,15 @@ export type BluetoothController = { name: string | null; address: string; device
 
 export type BluetoothData = { host: HostDistributions; controllers: BluetoothController[]; utc_timestamp: string; source_path: string }
 
-export type BluetoothDevice = { name: string | null; address: string; device_type: BluetoothDeviceType; link_key: string | null; le_data: BluetoothLowEnergyKey | null }
+export type BluetoothDevice = { name: string | null; address: string; device_type: BluetoothDeviceType; device_id: DeviceID | null; link_key: BluetoothLinkKey | null; le_data: BluetoothLowEnergyKey | null }
 
-export type BluetoothDeviceType = "Classic" | "LowEnergy" | "DualMode"
+export type BluetoothDeviceType = "Classic" | "LowEnergy" | "DualMode" | "Corrupted"
 
-export type BluetoothLowEnergyKey = { identity_resolving_key: string | null; local_signature_key: string | null; long_term_key: string | null; rand: string | null; ediv: string | null }
+export type BluetoothLinkKey = { key: string }
+
+export type BluetoothLowEnergyKey = { identity_resolving_key: string | null; local_signature_key: string | null; long_term_key: string | null; key_length: number | null; ediv: string | null; rand: string | null }
+
+export type DeviceID = { source: number | null; vendor: number | null; product: number | null; version: number | null }
 
 export type HostDistributions = "Windows" | "Linux"
 

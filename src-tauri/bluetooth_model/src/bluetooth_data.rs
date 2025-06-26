@@ -47,7 +47,7 @@ pub struct BluetoothDevice {
     pub address: MacAddress,
     pub device_type: BluetoothDeviceType,
     pub device_id: Option<DeviceID>,
-    pub link_key: Option<String>,
+    pub link_key: Option<BluetoothLinkKey>,
     pub le_data: Option<BluetoothLowEnergyKey>,
 }
 
@@ -60,10 +60,8 @@ pub struct DeviceID {
 }
 
 #[app_macros::ipc_type]
-pub struct LinkKey {
+pub struct BluetoothLinkKey {
     pub key: String,
-    pub key_type: Option<isize>,
-    pub pin_length: Option<u32>,
 }
 
 #[app_macros::ipc_type]

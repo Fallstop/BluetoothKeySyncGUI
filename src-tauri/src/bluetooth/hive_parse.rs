@@ -1,6 +1,5 @@
 use bluetooth_model::{
-    BluetoothController, BluetoothData, BluetoothDevice, BluetoothDeviceType,
-    BluetoothLowEnergyKey, HostDistributions,
+    BluetoothController, BluetoothData, BluetoothDevice, BluetoothDeviceType, BluetoothLinkKey, BluetoothLowEnergyKey, HostDistributions
 };
 use chrono::Utc;
 use mac_address::MacAddress;
@@ -89,7 +88,7 @@ fn parse_controller_devices(
     root_key: &KeyNode,
     hive: &mut Hive<File, CleanHive>,
 ) -> Result<Vec<BluetoothDevice>, Box<dyn std::error::Error + Send + Sync>> {
-    let mut device_map: HashMap<String, (Option<String>, Option<BluetoothLowEnergyKey>)> = HashMap::new();
+    let mut device_map: HashMap<String, (Option<BluetoothLinkKey>, Option<BluetoothLowEnergyKey>)> = HashMap::new();
 
     // First pass: collect LE devices (subkeys)
     for device_connected in (*controller_key.subkeys(hive)?).iter() {
@@ -108,6 +107,7 @@ fn parse_controller_devices(
             identity_resolving_key: get_value("IRK"),
             local_signature_key: get_value("CSRK"),
             long_term_key: get_value("LTK"),
+            key_length: get_value("KeyLength").and_then(|s| s.parse().ok()),
             rand: get_value("ERand"),
             ediv: get_value("EDIV"),
         };
@@ -123,14 +123,21 @@ fn parse_controller_devices(
         }
 
         let device_mac = device_connected.name().to_string();
-        let link_key = device_connected.value().to_string();
+        let link_key_string = device_connected.value().to_string();
+        let link_key = if link_key_string.is_empty() {
+            None
+        } else {
+            Some(BluetoothLinkKey {
+                key: link_key_string,
+            })
+        };
 
         if let Some(entry) = device_map.get_mut(&device_mac) {
             // Device exists in both modes - make it dual mode
-            entry.0 = Some(link_key);
+            entry.0 = link_key;
         } else {
             // Classic-only device
-            device_map.insert(device_mac, (Some(link_key), None));
+            device_map.insert(device_mac, (link_key, None));
         }
     }
 

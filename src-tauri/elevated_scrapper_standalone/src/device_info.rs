@@ -1,5 +1,5 @@
 use std::path::Path;
-use bluetooth_model::{BluetoothLowEnergyKey, DeviceID, LinkKey};
+use bluetooth_model::{BluetoothLowEnergyKey, DeviceID, BluetoothLinkKey};
 use ini::Ini;
 use mac_address::MacAddress;
 // use bluetooth_model::{DeviceID, LinkKey, LongTermKey, SignatureKey, IdentityResolvingKey, BluetoothLowEnergyData};
@@ -98,22 +98,21 @@ impl DeviceInfo {
         }
     }
 
-    pub fn link_key(&self) -> Option<LinkKey> {
+    pub fn link_key(&self) -> Option<BluetoothLinkKey> {
         let section = self.ini.section(Some("LinkKey"))?;
         let key = section.get("Key")?.to_string();
 
-        Some(LinkKey {
+        Some(BluetoothLinkKey {
             key,
-            key_type: section.get("Type").and_then(|s| s.parse().ok()),
-            pin_length: section.get("PINLength").and_then(|s| s.parse().ok()),
+            // pin_length: section.get("PINLength").and_then(|s| s.parse().ok()),
         })
     }
 
-    pub fn set_link_key(&mut self, link_key: Option<LinkKey>) {
+    pub fn set_link_key(&mut self, link_key: Option<BluetoothLinkKey>) {
         if let Some(key) = link_key {
             self.ini.with_section(Some("LinkKey")).set("Key", &key.key);
-            self.set_option_helper("LinkKey", "Type", key.key_type.map(|v| v.to_string()));
-            self.set_option_helper("LinkKey", "PINLength", key.pin_length.map(|v| v.to_string()));
+            // self.set_option_helper("LinkKey", "Type", key.key_type.map(|v| v.to_string()));
+            // self.set_option_helper("LinkKey", "PINLength", key.pin_length.map(|v| v.to_string()));
         } else {
             self.ini.delete(Some("LinkKey"));
         }
