@@ -3,7 +3,7 @@ use std::{fs, path::Path, str::FromStr};
 use bluetooth_model::{BluetoothController, BluetoothDevice, BluetoothDeviceType};
 use mac_address::MacAddress;
 
-use crate::info_model::Info;
+use crate::device_info::DeviceInfo;
 
 pub fn scan_filesystem() -> Result<Vec<BluetoothController>, Box<dyn std::error::Error>> {
     let mut controllers = Vec::new();
@@ -90,35 +90,26 @@ fn extract_device_details(
     device_path: &Path,
     address: MacAddress,
 ) -> Result<BluetoothDevice, Box<dyn std::error::Error>> {
-    let content = fs::read_to_string(&device_path)?;
-    if content.is_empty() {
-        return Err("Device info file is empty".into());
-    }
+    let device_info = DeviceInfo::load_from_file(device_path, address)?;
 
-    let info: Info = serini::from_str(&content).map_err(|e| {
-        eprintln!("Failed to parse device info file {}: {}", address, e);
-        e
-    })?;
+    let name = device_info.name();
+    let link_key = device_info.link_key();
+    let le_data = device_info.le_pairing_data();
 
-    let name = info.general.name;
 
-    // if info.link_key.is_some() && !info.link_key.as_ref().unwrap().key.is_empty() {
+    let device_type = match (link_key.is_some(), le_data.is_some()) {
+        (true, true) => BluetoothDeviceType::DualMode,
+        (true, false) => BluetoothDeviceType::Classic,
+        (false, true) => BluetoothDeviceType::LowEnergy,
+        (false, false) => BluetoothDeviceType::Corrupted, // Default fallback
+    };
 
-        // Classic Bluetooth device
-        Ok(BluetoothDevice {
-            name: name,
-            address,
-            device_type: BluetoothDeviceType::Classic,
-            link_key: None,
-            le_data: None,
-        })
-    // } else {
-    //     Ok(BluetoothDevice {
-    //         name: name,
-    //         address,
-    //         device_type: BluetoothDeviceType::LowEnergy,
-    //         link_key: None,
-    //         le_data: None,
-    //     })
-    // }
+    Ok(BluetoothDevice {
+        name,
+        address,
+        device_type,
+        device_id: device_info.device_id(),
+        link_key,
+        le_data,
+    })
 }

@@ -38,6 +38,7 @@ pub enum BluetoothDeviceType {
     Classic,
     LowEnergy,
     DualMode,
+    Corrupted
 }
 
 #[app_macros::ipc_type]
@@ -45,8 +46,24 @@ pub struct BluetoothDevice {
     pub name: Option<String>,
     pub address: MacAddress,
     pub device_type: BluetoothDeviceType,
+    pub device_id: Option<DeviceID>,
     pub link_key: Option<String>,
     pub le_data: Option<BluetoothLowEnergyKey>,
+}
+
+#[app_macros::ipc_type]
+pub struct DeviceID {
+    pub source: Option<u32>,
+    pub vendor: Option<u32>,
+    pub product: Option<u32>,
+    pub version: Option<u32>,
+}
+
+#[app_macros::ipc_type]
+pub struct LinkKey {
+    pub key: String,
+    pub key_type: Option<isize>,
+    pub pin_length: Option<u32>,
 }
 
 #[app_macros::ipc_type]
@@ -54,6 +71,32 @@ pub struct BluetoothLowEnergyKey {
     pub identity_resolving_key: Option<String>,
     pub local_signature_key: Option<String>,
     pub long_term_key: Option<String>,
-    pub rand: Option<String>,
+    pub key_length: Option<u32>,
     pub ediv: Option<String>,
+    pub rand: Option<String>,
+}
+
+impl BluetoothLowEnergyKey {
+    pub fn rank_validity(&self) -> u8 {
+        let mut rank = 0;
+        if self.long_term_key.is_some() {
+            rank += 4;
+        }
+        if self.identity_resolving_key.is_some() {
+            rank += 2;
+        }
+        if self.local_signature_key.is_some() {
+            rank += 1;
+        }
+        if self.key_length.is_some() {
+            rank += 1;
+        }
+        if self.ediv.is_some() {
+            rank += 1;
+        }
+        if self.rand.is_some() {
+            rank += 1;
+        }
+        rank
+    }
 }

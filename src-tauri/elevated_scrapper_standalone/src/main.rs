@@ -1,7 +1,7 @@
 use bluetooth_model::{BluetoothData, HostDistributions};
 
-mod info_model;
 mod scan_filesystem;
+mod device_info;
 
 use clap::Parser;
 

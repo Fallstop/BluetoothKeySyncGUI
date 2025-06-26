@@ -150,6 +150,7 @@ fn parse_controller_devices(
         devices.push(BluetoothDevice {
             name: Some(device_name),
             address: MacAddress::from_str(&device_mac).unwrap_or(MacAddress::default()),
+            device_id: None,
             device_type,
             link_key,
             le_data,
