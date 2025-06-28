@@ -13,10 +13,11 @@
 
 	interface Props {
 		controller: BluetoothController;
+		expandable?: boolean;
 		class?: string;
 	}
 
-	let { controller, class: userClass }: Props = $props();
+	let { controller, class: userClass, expandable }: Props = $props();
 
 	let expandedController = $state(false);
 
@@ -25,18 +26,20 @@
 	}
 </script>
 
-<div class="border rounded-lg p-3 {userClass}">
+<div class="border rounded-lg {userClass} {expandable ? 'bg-muted/50' : ''}">
 	<button
-		class="flex items-center gap-2 w-full text-left hover:bg-muted/50 rounded p-2 -m-2"
-		disabled={!controller.devices.length}
+		class="flex items-center gap-2 w-full text-left rounded p-5 -m-2"
+		disabled={!controller.devices.length || !expandable}
 		onclick={toggleController}
 	>
-		{#if !controller.devices.length}
-			<span class="h-4 w-4"></span>
-		{:else if expandedController}
-			<ChevronDown class="h-4 w-4" />
-		{:else}
-			<ChevronRight class="h-4 w-4" />
+		{#if expandable}
+			{#if !controller.devices.length}
+				<span class="h-4 w-4"></span>
+			{:else if expandedController}
+				<ChevronDown class="h-4 w-4" />
+			{:else}
+				<ChevronRight class="h-4 w-4" />
+			{/if}
 		{/if}
 		<Bluetooth class="h-4 w-4" />
 		<div>
@@ -49,9 +52,9 @@
 		</div>
 	</button>
 
-	{#if expandedController}
+	{#if expandedController || !expandable}
 		<div
-			class="ml-6 mt-2 space-y-2"
+			class=" m-4 space-y-4"
 			transition:slide={{ axis: "y", duration: 200 }}
 		>
 			{#each controller.devices as device}

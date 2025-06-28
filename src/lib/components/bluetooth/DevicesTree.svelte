@@ -11,6 +11,6 @@
 
 <div class="space-y-2">
 	{#each data.controllers.toSorted((a, b) => b.devices.length - a.devices.length) as controller}
-		<Controller {controller} />
+		<Controller {controller} expandable />
 	{/each}
 </div>
