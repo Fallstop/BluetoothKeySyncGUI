@@ -21,7 +21,7 @@ struct Args {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-
+    #[cfg(not(feature = "assume_elevated"))]
     if !args.privileged {
         // Makes it easy to develop without needing to run it explicitly as root
         sudo::escalate_if_needed()?;

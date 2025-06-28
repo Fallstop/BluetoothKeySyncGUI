@@ -2,7 +2,7 @@
 	import { Button, buttonVariants } from "$lib/components/ui/button/index.js";
 	import * as Card from "$lib/components/ui/card/index.js";
 	import CodeBlock from "@/components/CodeBlock.svelte";
-	import BluetoothDevicesTree from "@/components/BluetoothDevicesTree.svelte";
+	import DevicesTree from "@/components/bluetooth/DevicesTree.svelte";
 	import { ExternalLink, CheckCircle, Bluetooth } from "lucide-svelte";
 	import { open } from "@tauri-apps/plugin-dialog";
 	import * as Dialog from "@/components/ui/dialog";
@@ -105,7 +105,7 @@
 
 		{#if btStore.state.windows}
 			<div class="py-4">
-				<BluetoothDevicesTree data={btStore.state.windows} />
+				<DevicesTree data={btStore.state.windows} />
 			</div>
 		{:else if textState}
 			<div class="py-4">

@@ -2,8 +2,7 @@
 	import { Button } from "$lib/components/ui/button/index.js";
 	import * as Card from "$lib/components/ui/card/index.js";
 	import { rpc } from "@/api";
-	import BluetoothDevicesTree from "@/components/BluetoothDevicesTree.svelte";
-	import CodeBlock from "@/components/CodeBlock.svelte";
+	import DevicesTree from "@/components/bluetooth/DevicesTree.svelte";
 	import * as Dialog from "@/components/ui/dialog";
 	import { Progress } from "@/components/ui/progress";
 	import { btStore } from "@/state";
@@ -59,7 +58,7 @@
 
 		{#if btStore.state.linux}
 			<div class="py-4">
-				<BluetoothDevicesTree data={btStore.state.linux} />
+				<DevicesTree data={btStore.state.linux} />
 			</div>
 		{:else if textState}
 			<div class="py-4">

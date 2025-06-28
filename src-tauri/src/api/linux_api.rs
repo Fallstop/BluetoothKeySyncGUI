@@ -17,7 +17,6 @@ fn relative_command_path(command: &str) -> PathBuf {
     }
 }
 
-
 #[taurpc::procedures(path = "linux")]
 pub trait LinuxApi {
     async fn parse_local_config() -> Message<BluetoothData>;
@@ -28,36 +27,32 @@ pub struct LinuxApiImpl;
 
 #[taurpc::resolvers]
 impl LinuxApi for LinuxApiImpl {
-    async fn parse_local_config(
-        self,
-    ) -> Message<BluetoothData> {
-				let path = relative_command_path("elevated_scrapper");
+    async fn parse_local_config(self) -> Message<BluetoothData> {
+        let path = relative_command_path("elevated_scrapper");
 
-				let is_elevated = Command::is_elevated();
+        let is_elevated = Command::is_elevated();
 
-				let mut cmd = StdCommand::new(path);
-				cmd.arg("scan");
-				cmd.arg("--privileged");
+        let mut cmd = StdCommand::new(path);
+        cmd.arg("scan");
+        cmd.arg("--privileged");
 
+        println!("Running command: {:?}", cmd);
 
-				println!("Running command: {:?}", cmd);
+        let output = if is_elevated {
+            cmd.output().unwrap()
+        } else {
+            let mut elevated_cmd = Command::new(cmd);
+            elevated_cmd.name("Bluetooth Key Sync".to_string());
+            elevated_cmd.output().unwrap()
+        };
 
-				let output = if is_elevated {
-						cmd.output().unwrap()
-				} else {
-						let mut elevated_cmd = Command::new(cmd);
-						elevated_cmd.name("Bluetooth Key Sync".to_string());
-						elevated_cmd.output().unwrap()
-				};
-
-				println!("Output: {:?}", output);
+        println!("Output: {:?}", output);
 
         let data = serde_json::from_slice::<BluetoothData>(&output.stdout);
 
-				if let Err(e) = data {
-						return Message::Error(format!("Failed to parse Bluetooth data: {}", e));
-				}
-
+        if let Err(e) = data {
+            return Message::Error(format!("Failed to parse Bluetooth data: {}", e));
+        }
 
         Message::Success(data.unwrap())
     }
