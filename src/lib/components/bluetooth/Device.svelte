@@ -12,7 +12,7 @@
 
 <div
 	class="flex items-center gap-2 p-2 border rounded bg-muted/30"
-	draggable="false"
+	draggable="true"
 >
 	<DeviceIcon class="h-4 w-4" />
 	<div class="flex-1">

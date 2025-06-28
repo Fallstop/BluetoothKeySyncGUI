@@ -58,11 +58,11 @@
 		return mapping;
 	}
 
-	let matched_controllers = $derived(matchControllers(btStore.state.windows, btStore.state.linux))
+	let matchedControllers = $derived(matchControllers(btStore.state.windows, btStore.state.linux))
 
 </script>
 
-<DeviceModel/>
+<DeviceModel {matchedControllers}/>
 
 <div class="grid grid-cols-2 p-4 gap-y-4 gap-x-16 max-w-6xl mx-auto">
 	<div>
@@ -73,7 +73,7 @@
 		<h2 class="text-xl font-bold mb-4">Linux Bluetooth Devices</h2>
 	</div>
 
-	{#each matched_controllers as { windows, linux }}
+	{#each matchedControllers as { windows, linux }}
 		{#if windows}
 			<Controller class="self-baseline" controller={windows} />
 		{:else}
@@ -86,7 +86,7 @@
 		{/if}
 	{/each}
 
-	{#if matched_controllers.length === 0}
+	{#if matchedControllers.length === 0}
 		<div class="text-muted-foreground col-span-2">
 			No controllers found between Windows and Linux data.
 		</div>

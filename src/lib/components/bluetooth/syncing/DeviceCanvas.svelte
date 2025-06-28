@@ -1,56 +1,74 @@
 <script lang="ts">
-  import '@xyflow/svelte/dist/style.css';
-  import { SvelteFlow, SvelteFlowProvider } from '@xyflow/svelte';
-	import DeviceNode from './DeviceNode.svelte';
-	import type { MatchedControllers } from '#root/src/routes/sync/Sync.svelte';
+	import "@xyflow/svelte/dist/style.css";
+	import { ConnectionLineType, MarkerType, SvelteFlow, SvelteFlowProvider } from "@xyflow/svelte";
+	import type { MatchedControllers } from "#root/src/routes/sync/Sync.svelte";
+	import type { BluetoothDevice } from "#root/bindings";
 
-	let { matchedControllers }: { matchedControllers: MatchedControllers } = $props();
+	import DeviceNode from "./DeviceNode.svelte";
+	import FloatingEdge from "./FloatingEdge.svelte";
 
-  const nodeTypes = { deviceNode: DeviceNode };
+	let { matchedControllers }: { matchedControllers: MatchedControllers } =
+		$props();
 
-  // let nodes = $state.raw([
-  //   {
-  //     id: '1',
-  //     type: 'deviceNode',
-  //     position: { x: 0, y: 0 },
-  //     data: { label: 'Hello' },
-  //   },
-  //   {
-  //     id: '2',
-  //     type: 'deviceNode',
-  //     position: { x: 100, y: 100 },
-  //     data: { device: 'World' },
-  //   },
-  // ]);
+	const nodeTypes = { deviceNode: DeviceNode };
 
-let nodes = $state.raw(matchedControllers.map((controller, index) => {
-	return controller.windows?.devices.map((device, deviceIndex) => ({
-		id: `w-${index}-${deviceIndex}`,
-		type: 'deviceNode',
-		position: { x: 0, y: index * 100 + deviceIndex * 50 },
-		data: { device },
+	function deviceColumn(devices: BluetoothDevice[], x_initial: number, y_initial: number) {
+		return devices.map((device, index) => ({
+			id: `${x_initial}-${index}`,
+			type: "deviceNode",
+			data: { device },
+			dragHandle: ".custom-drag-handle",
+			position: { x: x_initial, y: y_initial + 100 * index },
+		}));
 	}
-	)) || [];
-}).flat().concat(matchedControllers.map((controller, index) => {
-	return controller.linux?.devices.map((device, deviceIndex) => ({
-		id: `l-${index}-${deviceIndex}`,
-		type: 'deviceNode',
-		position: { x: 200, y: index * 100 + deviceIndex *
-50 },
-		data: { device },
+
+	function deriveNodes(controllers: MatchedControllers) {
+		return controllers.flatMap((controller, index) => {
+			const x_initial = index * 100; // Adjust the spacing between controllers
+			const y_initial = 0;
+
+			let windowsDevices = controller.windows?.devices || [];
+			let linuxDevices = controller.linux?.devices || [];
+
+			return [
+				...deviceColumn(windowsDevices, 0, y_initial + 100),
+				...deviceColumn(linuxDevices, 250, y_initial + 100),
+			];
+		});
 	}
-	)) || [];
-}).flat()));
 
-  let edges = $state.raw([
-    { id: 'e1-2', source: '1', target: '2', type: 'smoothstep', label: 'to the' },
-  ]);
+	const edgeTypes = {
+    floating: FloatingEdge,
+  };
 
+	const defaultEdgeOptions = {
+    type: 'floating',
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+    },
+  };
+
+	let nodes = $state.raw(deriveNodes(matchedControllers));
+
+	let edges = $state.raw([]);
 </script>
 
+<!-- maxZoom={1}
+minZoom={1}
+panOnDrag={false}
+selectionOnDrag={false} -->
 <div style:width="100vw" style:height="50vh">
-
-<SvelteFlowProvider>
-  <SvelteFlow bind:nodes bind:edges panOnDrag={false} maxZoom={1} minZoom={1} selectionOnDrag={false} fitView viewport={{x:0,y:0,zoom:1}}  {nodeTypes} class="bg-background!" />
-</SvelteFlowProvider>
+	<SvelteFlowProvider>
+		<SvelteFlow
+			bind:nodes
+			bind:edges
+			fitView
+			viewport={{ x: 0, y: 0, zoom: 1 }}
+			{edgeTypes}
+			{defaultEdgeOptions}
+			connectionLineType={ConnectionLineType.Straight}
+			{nodeTypes}
+			class="bg-background!"
+		/>
+	</SvelteFlowProvider>
 </div>
