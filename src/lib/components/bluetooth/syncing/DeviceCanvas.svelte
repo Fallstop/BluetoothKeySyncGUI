@@ -2,37 +2,56 @@
 	import "@xyflow/svelte/dist/style.css";
 	import { ConnectionLineType, MarkerType, SvelteFlow, SvelteFlowProvider } from "@xyflow/svelte";
 	import type { MatchedControllers } from "#root/src/routes/sync/Sync.svelte";
-	import type { BluetoothDevice } from "#root/bindings";
+	import type { BluetoothController, BluetoothDevice } from "#root/bindings";
 
-	import DeviceNode from "./DeviceNode.svelte";
+	import DeviceNode, { deviceDimension } from "./DeviceNode.svelte";
 	import FloatingEdge from "./FloatingEdge.svelte";
+	import ControllerGroupNode, { controllerGroupDimension } from "./ControllerGroupNode.svelte";
+	import { remToPixels } from "./utils";
 
 	let { matchedControllers }: { matchedControllers: MatchedControllers } =
 		$props();
 
-	const nodeTypes = { deviceNode: DeviceNode };
+	const nodeTypes = { deviceNode: DeviceNode, controllerNode: ControllerGroupNode };
 
-	function deviceColumn(devices: BluetoothDevice[], x_initial: number, y_initial: number) {
-		return devices.map((device, index) => ({
-			id: `${x_initial}-${index}`,
-			type: "deviceNode",
-			data: { device },
-			dragHandle: ".custom-drag-handle",
-			position: { x: x_initial, y: y_initial + 100 * index },
-		}));
+	function deviceColumn(controller: BluetoothController | null, x_initial: number, y_initial: number) {
+		if (!controller) {
+			return [];
+		}
+
+		let devices = (controller?.devices || []);
+
+		let header_node = {
+			id: `${x_initial}-header`,
+			type: "controllerNode",
+			data: { controller, device_length: devices.length },
+			position: { x: remToPixels(x_initial), y: remToPixels(y_initial) },
+		};
+
+		const headerOffset = controllerGroupDimension.headerHeight;
+
+		return [
+			header_node,
+			... devices.map((device, index) => ({
+				id: `${x_initial}-${index}`,
+				type: "deviceNode",
+				data: { device },
+				dragHandle: ".custom-drag-handle",
+				position: { x: remToPixels(x_initial + controllerGroupDimension.generalMargin), y: remToPixels(y_initial + headerOffset + (deviceDimension.height  + controllerGroupDimension.generalMargin) * index)},
+				parentNode: header_node.id,
+			}))
+		];
 	}
 
 	function deriveNodes(controllers: MatchedControllers) {
 		return controllers.flatMap((controller, index) => {
-			const x_initial = index * 100; // Adjust the spacing between controllers
 			const y_initial = 0;
 
-			let windowsDevices = controller.windows?.devices || [];
-			let linuxDevices = controller.linux?.devices || [];
+			const interColumnSpacing = 4 + controllerGroupDimension.width;
 
 			return [
-				...deviceColumn(windowsDevices, 0, y_initial + 100),
-				...deviceColumn(linuxDevices, 250, y_initial + 100),
+				...deviceColumn(controller.windows, 0, y_initial),
+				...deviceColumn(controller.linux, interColumnSpacing, y_initial),
 			];
 		});
 	}
@@ -51,18 +70,20 @@
 	let nodes = $state.raw(deriveNodes(matchedControllers));
 
 	let edges = $state.raw([]);
+
+
 </script>
 
-<!-- maxZoom={1}
-minZoom={1}
-panOnDrag={false}
-selectionOnDrag={false} -->
 <div style:width="100vw" style:height="50vh">
 	<SvelteFlowProvider>
+		<!-- maxZoom={1}
+		minZoom={1}
+		panOnDrag={false}
+		selectionOnDrag={false} -->
 		<SvelteFlow
-			bind:nodes
-			bind:edges
-			fitView
+		bind:nodes
+		bind:edges
+		fitView
 			viewport={{ x: 0, y: 0, zoom: 1 }}
 			{edgeTypes}
 			{defaultEdgeOptions}

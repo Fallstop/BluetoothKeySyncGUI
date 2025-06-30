@@ -1,3 +1,4 @@
+import { browser } from '$app/environment';
 import {
   Position,
   MarkerType,
@@ -85,4 +86,13 @@ export function getEdgeParams(source: InternalNode, target: InternalNode) {
 export enum Column {
 	Left = 'left',
 	Right = 'right',
+}
+
+
+
+export function remToPixels(rem: number): number {
+	if (!browser) {
+		return rem;
+	}
+  return rem * parseFloat(getComputedStyle(document.documentElement).fontSize);
 }

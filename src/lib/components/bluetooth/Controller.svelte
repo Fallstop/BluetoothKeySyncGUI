@@ -26,7 +26,7 @@
 	}
 </script>
 
-<div class="border rounded-lg {userClass} {expandable ? 'bg-muted/50' : ''}">
+<div class="border rounded-lg {userClass} {(expandable && controller.devices.length) ? 'hover:bg-muted/50' : ''}">
 	<button
 		class="flex items-center gap-2 w-full text-left rounded p-5 -m-2"
 		disabled={!controller.devices.length || !expandable}

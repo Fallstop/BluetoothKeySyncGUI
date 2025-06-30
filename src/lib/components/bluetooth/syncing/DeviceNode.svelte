@@ -3,6 +3,10 @@
 	import type { Node } from '@xyflow/svelte';
 
   export type DeviceNodeType = Node<{ device: BluetoothDevice }, 'device'>;
+	export const deviceDimension = {
+		width: 18,
+		height: 5,
+	}
 </script>
 
 <script lang="ts">
@@ -37,7 +41,7 @@
       isConnectableStart={false}
     />
 	<div class="hidden custom-drag-handle pointer-events-none"></div>
-	<Device device={data.device} />
+	<Device device={data.device} style="width: {deviceDimension.width}rem; height: {deviceDimension.height}rem;"/>
 </div>
 
 <style lang="scss">
