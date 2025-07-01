@@ -6,7 +6,7 @@
 
 <script lang="ts">
 	import "@xyflow/svelte/dist/style.css";
-	import { ConnectionLineType, MarkerType, SvelteFlow, SvelteFlowProvider, type Edge, type IsValidConnection, type Node } from "@xyflow/svelte";
+	import { ConnectionLineType, MarkerType, SvelteFlow, SvelteFlowProvider, type Edge, type IsValidConnection, type Node, type Viewport } from "@xyflow/svelte";
 	import type { MatchedControllers } from "#root/src/routes/sync/Sync.svelte";
 	import type { BluetoothController, BluetoothDevice, HostDistributions } from "#root/bindings";
 
@@ -108,7 +108,6 @@
 
 	let edges = $state.raw<Edge[]>([]);
 
-
 	$effect(()=>{
 		const knownNodes = new Set();
 
@@ -161,13 +160,19 @@
 		bind:edges
 		minZoom={1}
 		maxZoom={1}
-		panOnDrag={false}
-		zoomOnDoubleClick={false}
 		zoomOnScroll={false}
+		zoomOnPinch={false}
+		zoomOnDoubleClick={false}
+		panOnScroll={false}
+		panOnDrag={false}
+		autoPanOnNodeDrag={false}
+		autoPanOnConnect={false}
+		panActivationKey={null}
+		zoomActivationKey={null}
 		selectionOnDrag={false}
 		preventScrolling={false}
 
-			viewport={{ x: 0, y: 0, zoom: 1 }}
+
 			{edgeTypes}
 			{defaultEdgeOptions}
 			connectionLineType={ConnectionLineType.Straight}

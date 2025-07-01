@@ -6,10 +6,10 @@
 
 
 <div class="flex-1"></div>
-<div class="bg-accent w-full p-4 sticky bottom-0 flex flex-row-reverse mt-auto h-min ">
+<div class="w-full p-4 sticky bottom-0 flex flex-row-reverse mt-auto h-min pointer-events-none">
 	<Dialog.Root>
 		<Dialog.Trigger>
-				<Button variant="outline"> <ArrowRightCircle/> Review Changes</Button>
+				<Button variant="outline" class="pointer-events-auto"> <ArrowRightCircle/> Review Changes</Button>
 			</Dialog.Trigger>
 			<Dialog.Content>
 				<Dialog.Header>

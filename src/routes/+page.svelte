@@ -11,7 +11,7 @@
 
 </script>
 
-<main class="flex flex-col justify-center p-4 max-w-3xl mx-auto gap-4">
+<main class="flex flex-col justify-center p-4 max-w-3xl w-full mx-auto gap-4">
 	<h1 class="scroll-m-20 my-10 text-4xl font-extrabold tracking-tight lg:text-5xl">
 		Let's get connected!
 	</h1>
