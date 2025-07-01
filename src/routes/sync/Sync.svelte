@@ -5,6 +5,7 @@
 <script lang="ts">
 	import type { BluetoothController, BluetoothData } from "#root/bindings";
 	import Controller from "@/components/bluetooth/Controller.svelte";
+	import CanvasWrapper from "@/components/bluetooth/syncing/CanvasWrapper.svelte";
 	import DeviceModel from "@/components/bluetooth/syncing/DeviceCanvas.svelte";
 	import { btStore } from "@/state";
 
@@ -62,8 +63,10 @@
 
 </script>
 
-<DeviceModel {matchedControllers}/>
+<CanvasWrapper {matchedControllers} />
 
+
+<!--
 <div class="grid grid-cols-2 p-4 gap-y-4 gap-x-16 max-w-6xl mx-auto">
 	<div>
 		<h2 class="text-xl font-bold mb-4">Windows Bluetooth Devices</h2>
@@ -92,4 +95,4 @@
 		</div>
 	{/if}
 
-</div>
+</div> -->

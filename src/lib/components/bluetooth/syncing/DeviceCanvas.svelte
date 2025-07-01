@@ -1,20 +1,26 @@
+<script lang="ts" module>
+	export type DeviceCanvasProps = {
+		matchedControllers: MatchedControllers
+	};
+</script>
+
 <script lang="ts">
 	import "@xyflow/svelte/dist/style.css";
-	import { ConnectionLineType, MarkerType, SvelteFlow, SvelteFlowProvider } from "@xyflow/svelte";
+	import { ConnectionLineType, MarkerType, SvelteFlow, SvelteFlowProvider, type Edge, type IsValidConnection, type Node } from "@xyflow/svelte";
 	import type { MatchedControllers } from "#root/src/routes/sync/Sync.svelte";
-	import type { BluetoothController, BluetoothDevice } from "#root/bindings";
+	import type { BluetoothController, BluetoothDevice, HostDistributions } from "#root/bindings";
 
 	import DeviceNode, { deviceDimension } from "./DeviceNode.svelte";
 	import FloatingEdge from "./FloatingEdge.svelte";
 	import ControllerGroupNode, { controllerGroupDimension } from "./ControllerGroupNode.svelte";
 	import { remToPixels } from "./utils";
+	import { NodeID } from "./NodeID"
 
-	let { matchedControllers }: { matchedControllers: MatchedControllers } =
-		$props();
+	let { matchedControllers }: DeviceCanvasProps =	$props();
 
 	const nodeTypes = { deviceNode: DeviceNode, controllerNode: ControllerGroupNode };
 
-	function deviceColumn(controller: BluetoothController | null, x_initial: number, y_initial: number) {
+	function deviceColumn(controller: BluetoothController | null, host: HostDistributions, x_initial: number, y_initial: number) {
 		if (!controller) {
 			return {
 				nodes: [],
@@ -39,7 +45,7 @@
 		const nodes = [
 			header_node,
 			... devices.map((device, index) => ({
-				id: `device-${device.address}-${x_initial}-${index}`,
+				id: new NodeID(host, controller.address, device.address).toString(),
 				type: "deviceNode",
 				data: { device },
 				dragHandle: ".custom-drag-handle",
@@ -66,8 +72,8 @@
 
 			const interColumnSpacing = 4 + controllerGroupDimension.width;
 
-			const windows = deviceColumn(controller.windows, 0, y_initial);
-			const linux = deviceColumn(controller.linux, interColumnSpacing, y_initial);
+			const windows = deviceColumn(controller.windows, "Windows", 0, y_initial);
+			const linux = deviceColumn(controller.linux, "Linux", interColumnSpacing, y_initial);
 
 			currentY += Math.max(windows.total_height, linux.total_height) + interRowSpacing;
 
@@ -90,19 +96,56 @@
     },
   };
 
-	let nodes = $state.raw(deriveNodes(matchedControllers));
 
-	let edges = $state.raw([]);
+	let nodes = $state.raw<Node[]>(deriveNodes(matchedControllers));
 
+	let edges = $state.raw<Edge[]>([]);
+
+
+	$effect(()=>{
+		const knownNodes = new Set();
+
+		const proposed_edges =  edges.reverse().filter((edge)=>{
+			if (!edge.source || !edge.target) {
+				return true;
+			}
+
+			if (knownNodes.has(edge.source) || knownNodes.has(edge.target)) {
+				// Already used in the recent edge
+				return false;
+			}
+
+			knownNodes.add(edge.source);
+			knownNodes.add(edge.target);
+
+			return true;
+		}).reverse();
+
+		if (proposed_edges.length != edges.length) {
+			// We can't directly resign, we only do if we have found a node to remove, otherwise we cause an infinite loop
+			edges = proposed_edges;
+		}
+	})
+
+	const isValidConnection: IsValidConnection = (connection) => {
+		let source = NodeID.parse(connection.source);
+		let target = NodeID.parse(connection.target);
+
+		if (!source || !target) {
+			// Needs to be between devices, which will parse.
+			return false;
+		}
+
+		if (source.os == target.os) {
+			// Can't copy keys intra-os
+			return false;
+		}
+
+		return true;
+	}
 
 </script>
 
-<div style:width="100vw" style:height="100vh">
-	<!-- maxZoom={1}
-	minZoom={1}
-	panOnDrag={false}
-	selectionOnDrag={false} -->
-	<SvelteFlowProvider>
 		<SvelteFlow
 		bind:nodes
 		bind:edges
@@ -112,7 +155,8 @@
 			{defaultEdgeOptions}
 			connectionLineType={ConnectionLineType.Straight}
 			{nodeTypes}
+			{isValidConnection}
+
+			proOptions={{hideAttribution:true}}
 			class="bg-background!"
 		/>
-	</SvelteFlowProvider>
-</div>
