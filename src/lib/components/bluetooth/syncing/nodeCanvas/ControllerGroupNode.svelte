@@ -20,7 +20,6 @@
 		Bluetooth,
 	} from "lucide-svelte";
 	import { slide } from "svelte/transition";
-	import Device from "../Device.svelte";
 	import { deviceDimension } from './DeviceNode.svelte';
 
   let { id, data }: NodeProps<ControllerNodeType> = $props();

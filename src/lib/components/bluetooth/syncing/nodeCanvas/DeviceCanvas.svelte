@@ -62,15 +62,17 @@
 		}
 	}
 
+	let graphDimensions = $state({height: 0, width: 0});
+
 	function deriveNodes(controllers: MatchedControllers) {
 		const interRowSpacing = 2;
 
 		let currentY = 0;
+		const interColumnSpacing = 4 + controllerGroupDimension.width;
 
-		return controllers.flatMap((controller, index) => {
+		const final_nodes = controllers.flatMap((controller, index) => {
 			const y_initial = currentY;
 
-			const interColumnSpacing = 4 + controllerGroupDimension.width;
 
 			const windows = deviceColumn(controller.windows, "Windows", 0, y_initial);
 			const linux = deviceColumn(controller.linux, "Linux", interColumnSpacing, y_initial);
@@ -83,6 +85,11 @@
 			];
 
 		});
+
+		graphDimensions.height = currentY;
+		graphDimensions.width = interColumnSpacing + controllerGroupDimension.width;
+
+		return final_nodes;
 	}
 
 	const edgeTypes = {
@@ -146,10 +153,20 @@
 
 </script>
 
+<div style:width="{graphDimensions.width}rem" style:height="{graphDimensions.height}rem">
+	<SvelteFlowProvider>
+
 		<SvelteFlow
 		bind:nodes
 		bind:edges
-		fitView
+		minZoom={1}
+		maxZoom={1}
+		panOnDrag={false}
+		zoomOnDoubleClick={false}
+		zoomOnScroll={false}
+		selectionOnDrag={false}
+		preventScrolling={false}
+
 			viewport={{ x: 0, y: 0, zoom: 1 }}
 			{edgeTypes}
 			{defaultEdgeOptions}
@@ -160,3 +177,5 @@
 			proOptions={{hideAttribution:true}}
 			class="bg-background!"
 		/>
+	</SvelteFlowProvider>
+</div>

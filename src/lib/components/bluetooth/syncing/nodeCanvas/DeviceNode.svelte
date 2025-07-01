@@ -11,7 +11,7 @@
 
 <script lang="ts">
   import { Handle, Position, useConnection, useSvelteFlow, type NodeProps } from '@xyflow/svelte';
-	import Device from '../Device.svelte';
+	import Device from '../../Device.svelte';
 
   let { id, data }: NodeProps<DeviceNodeType> = $props();
 

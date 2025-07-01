@@ -12,6 +12,4 @@
 
 </script>
 
-<div>
-	<Sync/>
-</div>
+<Sync/>
