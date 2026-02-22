@@ -12,9 +12,13 @@ export type BluetoothDevice = { name: string | null; address: string; device_typ
 
 export type BluetoothDeviceType = "Classic" | "LowEnergy" | "DualMode" | "Corrupted"
 
-export type BluetoothLinkKey = { key: string }
+export type BluetoothLinkKey = { key: string; key_type: number | null; pin_length: number | null }
 
-export type BluetoothLowEnergyKey = { identity_resolving_key: string | null; local_signature_key: string | null; long_term_key: string | null; key_length: number | null; ediv: string | null; rand: string | null }
+export type BluetoothLowEnergyKey = { long_term_key: LongTermKeyData | null; peripheral_long_term_key: LongTermKeyData | null; identity_resolving_key: string | null; local_signature_key: SignatureKeyData | null; remote_signature_key: SignatureKeyData | null; address_type: string | null }
+
+export type LongTermKeyData = { key: string; authenticated: number | null; key_length: number | null; ediv: string | null; rand: string | null }
+
+export type SignatureKeyData = { key: string; counter: number | null; authenticated: number | null }
 
 export type DeviceID = { source: number | null; vendor: number | null; product: number | null; version: number | null }
 

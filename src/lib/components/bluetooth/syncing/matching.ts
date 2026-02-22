@@ -4,18 +4,27 @@ import type {
 	BluetoothDevice,
 	BluetoothLinkKey,
 	BluetoothLowEnergyKey,
+	LongTermKeyData,
+	SignatureKeyData,
 	HostDistributions
 } from '#root/bindings';
 
 // Mirrors Rust SyncProposal/SyncRequest/SyncResult in sync_api.rs
 // These aren't in the auto-generated bindings yet
-export type SyncProposal = {
-	source_device: BluetoothDevice;
-	target_device: BluetoothDevice;
-	source_os: HostDistributions;
-	target_os: HostDistributions;
-	action: string;
-};
+export type SyncProposal =
+	| {
+			action: 'CopyKeys';
+			source_device: BluetoothDevice;
+			target_device: BluetoothDevice;
+			source_os: HostDistributions;
+			target_os: HostDistributions;
+	  }
+	| {
+			action: 'DeleteDevice';
+			device: BluetoothDevice;
+			os: HostDistributions;
+			controller_address: string;
+	  };
 
 export type SyncRequest = {
 	proposals: SyncProposal[];
@@ -53,7 +62,15 @@ export interface MatchedDevicePair {
 	linuxDevice: BluetoothDevice;
 	controllerAddress: string;
 	comparison: KeyComparison;
-	recommendedDirection: SyncDirection;
+}
+
+export interface ManualMatch {
+	id: string;
+	windowsDevice: BluetoothDevice;
+	linuxDevice: BluetoothDevice;
+	windowsControllerAddr: string;
+	linuxControllerAddr: string;
+	comparison: KeyComparison;
 }
 
 export interface UnmatchedDevice {
@@ -77,8 +94,7 @@ export interface MatchResult {
 }
 
 export interface SyncSelection {
-	enabled: boolean;
-	direction: SyncDirection;
+	direction: SyncDirection | null;
 }
 
 // Key for SyncSelections map: `${controllerAddress}/${deviceAddress}`
@@ -115,31 +131,77 @@ export function compareLinkKeys(
 	windowsKey: BluetoothLinkKey | null,
 	linuxKey: BluetoothLinkKey | null
 ): KeyFieldComparison[] {
-	return [compareField('key', 'Link Key', windowsKey?.key, linuxKey?.key)];
+	return [
+		compareField('key', 'Link Key', windowsKey?.key, linuxKey?.key),
+		compareField('key_type', 'Key Type', windowsKey?.key_type, linuxKey?.key_type),
+		compareField('pin_length', 'PIN Length', windowsKey?.pin_length, linuxKey?.pin_length)
+	];
+}
+
+function compareLtkGroup(
+	prefix: 'ltk' | 'peripheral',
+	winKey: LongTermKeyData | null | undefined,
+	linKey: LongTermKeyData | null | undefined
+): KeyFieldComparison[] {
+	if (prefix === 'ltk') {
+		return [
+			compareField('long_term_key', 'Long Term Key (LTK)', winKey?.key, linKey?.key),
+			compareField('ltk_authenticated', 'LTK Authenticated', winKey?.authenticated, linKey?.authenticated),
+			compareField('ediv', 'EDIV', winKey?.ediv, linKey?.ediv),
+			compareField('rand', 'Rand', winKey?.rand, linKey?.rand),
+			compareField('key_length', 'Key Length', winKey?.key_length, linKey?.key_length)
+		];
+	} else {
+		return [
+			compareField('peripheral_ltk', 'Peripheral LTK', winKey?.key, linKey?.key),
+			compareField('peripheral_ltk_authenticated', 'Peripheral LTK Authenticated', winKey?.authenticated, linKey?.authenticated),
+			compareField('peripheral_ediv', 'Peripheral EDIV', winKey?.ediv, linKey?.ediv),
+			compareField('peripheral_rand', 'Peripheral Rand', winKey?.rand, linKey?.rand),
+			compareField('peripheral_key_length', 'Peripheral Key Length', winKey?.key_length, linKey?.key_length)
+		];
+	}
 }
 
 export function compareLeData(
 	windowsLe: BluetoothLowEnergyKey | null,
 	linuxLe: BluetoothLowEnergyKey | null
 ): KeyFieldComparison[] {
-	return [
-		compareField('long_term_key', 'Long Term Key (LTK)', windowsLe?.long_term_key, linuxLe?.long_term_key),
-		compareField(
-			'identity_resolving_key',
-			'Identity Resolving Key (IRK)',
-			windowsLe?.identity_resolving_key,
-			linuxLe?.identity_resolving_key
-		),
-		compareField(
-			'local_signature_key',
-			'Signature Key (CSRK)',
-			windowsLe?.local_signature_key,
-			linuxLe?.local_signature_key
-		),
-		compareField('ediv', 'EDIV', windowsLe?.ediv, linuxLe?.ediv),
-		compareField('rand', 'Rand', windowsLe?.rand, linuxLe?.rand),
-		compareField('key_length', 'Key Length', windowsLe?.key_length, linuxLe?.key_length)
-	];
+	const fields: KeyFieldComparison[] = [];
+
+	const winLtk = windowsLe?.long_term_key ?? null;
+	const winPeripheralLtk = windowsLe?.peripheral_long_term_key ?? null;
+	const linLtk = linuxLe?.long_term_key ?? null;
+	const linPeripheralLtk = linuxLe?.peripheral_long_term_key ?? null;
+
+	// Cross-role: one side has LTK only, other has Peripheral LTK only.
+	// Windows BTHPORT doesn't distinguish roles — always stores as LTK.
+	// Linux BlueZ does — peripherals use [PeripheralLongTermKey].
+	// Compare them against each other as one effective "Long Term Key".
+	const isCrossRole =
+		(winLtk && !winPeripheralLtk && !linLtk && linPeripheralLtk) ||
+		(!winLtk && winPeripheralLtk && linLtk && !linPeripheralLtk);
+
+	if (isCrossRole) {
+		const effectiveWin = winLtk ?? winPeripheralLtk;
+		const effectiveLin = linLtk ?? linPeripheralLtk;
+		fields.push(...compareLtkGroup('ltk', effectiveWin, effectiveLin));
+	} else {
+		// Same-slot or dual-role: compare each separately
+		fields.push(...compareLtkGroup('ltk', winLtk, linLtk));
+		fields.push(...compareLtkGroup('peripheral', winPeripheralLtk, linPeripheralLtk));
+	}
+
+	// IRK
+	fields.push(compareField('identity_resolving_key', 'Identity Resolving Key (IRK)', windowsLe?.identity_resolving_key, linuxLe?.identity_resolving_key));
+	// Signature keys
+	fields.push(compareField('local_signature_key', 'Local CSRK', windowsLe?.local_signature_key?.key, linuxLe?.local_signature_key?.key));
+	fields.push(compareField('local_csrk_counter', 'Local CSRK Counter', windowsLe?.local_signature_key?.counter, linuxLe?.local_signature_key?.counter));
+	fields.push(compareField('remote_signature_key', 'Remote CSRK', windowsLe?.remote_signature_key?.key, linuxLe?.remote_signature_key?.key));
+	fields.push(compareField('remote_csrk_counter', 'Remote CSRK Counter', windowsLe?.remote_signature_key?.counter, linuxLe?.remote_signature_key?.counter));
+	// Address type
+	fields.push(compareField('address_type', 'Address Type', windowsLe?.address_type, linuxLe?.address_type));
+
+	return fields;
 }
 
 export function compareKeys(windowsDevice: BluetoothDevice, linuxDevice: BluetoothDevice): KeyComparison {
@@ -160,30 +222,6 @@ export function compareKeys(windowsDevice: BluetoothDevice, linuxDevice: Bluetoo
 	}
 
 	return { linkKey, leData, overallStatus };
-}
-
-function countKeyFields(device: BluetoothDevice): number {
-	let count = 0;
-	if (device.link_key?.key) count++;
-	if (device.le_data) {
-		if (device.le_data.long_term_key) count += 4; // LTK is most important
-		if (device.le_data.identity_resolving_key) count += 2;
-		if (device.le_data.local_signature_key) count++;
-		if (device.le_data.key_length != null) count++;
-		if (device.le_data.ediv) count++;
-		if (device.le_data.rand) count++;
-	}
-	return count;
-}
-
-export function recommendDirection(
-	windowsDevice: BluetoothDevice,
-	linuxDevice: BluetoothDevice
-): SyncDirection {
-	const winCount = countKeyFields(windowsDevice);
-	const linCount = countKeyFields(linuxDevice);
-	// More complete side is source; tie-break favors Windows
-	return linCount > winCount ? 'linux_to_win' : 'win_to_linux';
 }
 
 // --- Matching Functions ---
@@ -218,8 +256,7 @@ export function matchDevicesForController(
 				windowsDevice: winDev,
 				linuxDevice: linDev,
 				controllerAddress,
-				comparison,
-				recommendedDirection: recommendDirection(winDev, linDev)
+				comparison
 			});
 		} else {
 			unmatched.push({ device: winDev, os: 'Windows', controllerAddress });
@@ -316,42 +353,104 @@ export function pairKey(controllerAddress: string, deviceAddress: string): strin
 	return `${controllerAddress}/${deviceAddress}`;
 }
 
-export function initSelections(matchResult: MatchResult): SyncSelections {
-	const selections: SyncSelections = new Map();
-	for (const pair of matchResult.needsSync) {
-		selections.set(pairKey(pair.controllerAddress, pair.windowsDevice.address), {
-			enabled: true,
-			direction: pair.recommendedDirection
-		});
-	}
-	return selections;
+export function initSelections(_matchResult: MatchResult): SyncSelections {
+	// Selections are only created when users manually pair devices.
+	// No auto-selections — users pick exactly what they want to sync.
+	return new Map();
+}
+
+export function manualPairKey(id: string): string {
+	return `manual/${id}`;
+}
+
+let manualMatchCounter = 0;
+export function createManualMatch(
+	winDevice: BluetoothDevice,
+	linDevice: BluetoothDevice,
+	winCtrlAddr: string,
+	linCtrlAddr: string
+): ManualMatch {
+	return {
+		id: `manual-${++manualMatchCounter}`,
+		windowsDevice: winDevice,
+		linuxDevice: linDevice,
+		windowsControllerAddr: winCtrlAddr,
+		linuxControllerAddr: linCtrlAddr,
+		comparison: compareKeys(winDevice, linDevice)
+	};
 }
 
 export function buildSyncProposals(
 	matchResult: MatchResult,
-	selections: SyncSelections
+	selections: SyncSelections,
+	manualMatches: ManualMatch[] = []
 ): SyncProposal[] {
 	const proposals: SyncProposal[] = [];
 
 	for (const pair of matchResult.needsSync) {
 		const key = pairKey(pair.controllerAddress, pair.windowsDevice.address);
 		const selection = selections.get(key);
-		if (!selection?.enabled) continue;
+		if (!selection?.direction) continue;
 
 		const isWinToLin = selection.direction === 'win_to_linux';
 		proposals.push({
+			action: 'CopyKeys',
 			source_device: isWinToLin ? pair.windowsDevice : pair.linuxDevice,
 			target_device: isWinToLin ? pair.linuxDevice : pair.windowsDevice,
 			source_os: isWinToLin ? 'Windows' : 'Linux',
-			target_os: isWinToLin ? 'Linux' : 'Windows',
-			action: 'copy_keys'
+			target_os: isWinToLin ? 'Linux' : 'Windows'
+		});
+	}
+
+	for (const match of manualMatches) {
+		const key = manualPairKey(match.id);
+		const selection = selections.get(key);
+		if (!selection?.direction) continue;
+
+		const isWinToLin = selection.direction === 'win_to_linux';
+		proposals.push({
+			action: 'CopyKeys',
+			source_device: isWinToLin ? match.windowsDevice : match.linuxDevice,
+			target_device: isWinToLin ? match.linuxDevice : match.windowsDevice,
+			source_os: isWinToLin ? 'Windows' : 'Linux',
+			target_os: isWinToLin ? 'Linux' : 'Windows'
 		});
 	}
 
 	return proposals;
 }
 
-export function describeSyncChanges(pair: MatchedDevicePair, direction: SyncDirection): string[] {
+export function deviceKey(os: HostDistributions, controllerAddress: string, deviceAddress: string): string {
+	return `${os}/${controllerAddress}/${deviceAddress}`;
+}
+
+export function buildDeleteProposals(
+	deletions: Set<string>,
+	allDevices: UnmatchedDevice[]
+): SyncProposal[] {
+	const proposals: SyncProposal[] = [];
+
+	for (const d of allDevices) {
+		const key = deviceKey(d.os, d.controllerAddress, d.device.address);
+		if (deletions.has(key)) {
+			proposals.push({
+				action: 'DeleteDevice',
+				device: d.device,
+				os: d.os,
+				controller_address: d.controllerAddress
+			});
+		}
+	}
+
+	return proposals;
+}
+
+export function describeSyncChanges(
+	pair: MatchedDevicePair | ManualMatch,
+	direction: SyncDirection | null
+): string[] {
+	if (!direction) return [];
+
 	const changes: string[] = [];
 	const allFields = [...pair.comparison.linkKey, ...pair.comparison.leData];
 	const isWinToLin = direction === 'win_to_linux';

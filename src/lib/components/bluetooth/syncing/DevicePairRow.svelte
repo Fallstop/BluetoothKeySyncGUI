@@ -1,40 +1,110 @@
 <script lang="ts">
-	import type { MatchedDevicePair, SyncDirection, KeyFieldComparison } from './matching';
+	import type {
+		MatchedDevicePair,
+		ManualMatch,
+		SyncDirection,
+		KeyFieldComparison
+	} from './matching';
 	import { describeSyncChanges } from './matching';
-	import { Check, X, AlertTriangle, ArrowRight, Minus } from 'lucide-svelte';
+	import { Check, X, AlertTriangle, Minus, ArrowRight } from 'lucide-svelte';
+	import { osColor } from './os-theme';
+	import PairSideMiniCard from './PairSideMiniCard.svelte';
 
 	let {
 		pair,
-		enabled = true,
-		direction = 'win_to_linux' as SyncDirection,
+		direction = null as SyncDirection | null,
 		readonly = false,
-		onenabledchange,
-		ondirectionchange
+		isManual = false,
+		ondirectionchange,
+		onunlink
 	}: {
-		pair: MatchedDevicePair;
-		enabled?: boolean;
-		direction?: SyncDirection;
+		pair: MatchedDevicePair | ManualMatch;
+		direction?: SyncDirection | null;
 		readonly?: boolean;
-		onenabledchange?: (enabled: boolean) => void;
+		isManual?: boolean;
 		ondirectionchange?: (direction: SyncDirection) => void;
+		onunlink?: () => void;
 	} = $props();
 
 	let expanded = $state(false);
+	let rowEl: HTMLDivElement;
 
-	let deviceName = $derived(
-		pair.windowsDevice.name ?? pair.linuxDevice.name ?? 'Unknown Device'
-	);
+	let isSynced = $derived(pair.comparison.overallStatus === 'synced');
+	let canDrag = $derived(!readonly && !isSynced);
 
 	let syncChanges = $derived(describeSyncChanges(pair, direction));
 
-	let borderColor = $derived(
-		pair.comparison.overallStatus === 'synced'
-			? 'border-l-green-500'
-			: pair.comparison.overallStatus === 'needs_sync'
-				? 'border-l-amber-500'
-				: 'border-l-muted-foreground'
+	// --- Drag-to-set-direction ---
+	let draggingFromSide: 'win' | 'lin' | null = $state(null);
+	let dragHoverSide: 'win' | 'lin' | null = $state(null);
+
+	$effect(() => {
+		if (draggingFromSide) {
+			document.body.style.cursor = 'grabbing';
+			document.body.style.userSelect = 'none';
+			return () => {
+				document.body.style.cursor = '';
+				document.body.style.userSelect = '';
+			};
+		}
+	});
+
+	function handleSidePointerDown(side: 'win' | 'lin', e: PointerEvent) {
+		if (!canDrag || e.button !== 0) return;
+		draggingFromSide = side;
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+		e.preventDefault();
+	}
+
+	function handleSidePointerMove(e: PointerEvent) {
+		if (!draggingFromSide) return;
+		const el = document.elementFromPoint(e.clientX, e.clientY);
+		const target = el?.closest('[data-pair-side]') as HTMLElement | null;
+		if (target && rowEl?.contains(target)) {
+			dragHoverSide = (target.dataset.pairSide as 'win' | 'lin') ?? null;
+		} else {
+			dragHoverSide = null;
+		}
+	}
+
+	function handleSidePointerUp(e: PointerEvent) {
+		if (!draggingFromSide) return;
+		const el = document.elementFromPoint(e.clientX, e.clientY);
+		const target = el?.closest('[data-pair-side]') as HTMLElement | null;
+		if (target && rowEl?.contains(target)) {
+			const targetSide = target.dataset.pairSide;
+			if (draggingFromSide === 'win' && targetSide === 'lin') {
+				ondirectionchange?.('win_to_linux');
+			} else if (draggingFromSide === 'lin' && targetSide === 'win') {
+				ondirectionchange?.('linux_to_win');
+			}
+		}
+		draggingFromSide = null;
+		dragHoverSide = null;
+	}
+
+	function handleSidePointerCancel() {
+		draggingFromSide = null;
+		dragHoverSide = null;
+	}
+
+	let winDragClass = $derived(
+		draggingFromSide === 'win'
+			? `ring-2 ${osColor('Windows').ringActive}`
+			: dragHoverSide === 'win' && draggingFromSide === 'lin'
+				? `ring-2 ${osColor('Windows').ringHover}`
+				: ''
 	);
 
+	let linDragClass = $derived(
+		draggingFromSide === 'lin'
+			? `ring-2 ${osColor('Linux').ringActive}`
+			: dragHoverSide === 'lin' && draggingFromSide === 'win'
+				? `ring-2 ${osColor('Linux').ringHover}`
+				: ''
+	);
+
+	// --- Helpers ---
 	function statusIcon(status: KeyFieldComparison['status']) {
 		switch (status) {
 			case 'match':
@@ -56,86 +126,98 @@
 	}
 </script>
 
-<div class="border rounded-lg border-l-4 {borderColor} bg-card text-card-foreground">
-	<div class="p-3 flex items-start gap-3">
-		{#if !readonly}
-			<label class="flex items-center pt-0.5">
-				<input
-					type="checkbox"
-					checked={enabled}
-					onchange={(e) => onenabledchange?.(e.currentTarget.checked)}
-					class="rounded border-input h-4 w-4 accent-primary"
-				/>
-			</label>
-		{/if}
+<div class="rounded-lg border bg-card text-card-foreground" bind:this={rowEl}>
+	<!-- Main row: Win card — direction — Lin card -->
+	<div class="p-3 flex items-center gap-3">
+		<!-- Windows device mini-card -->
+		<PairSideMiniCard
+			device={pair.windowsDevice}
+			os="Windows"
+			side="left"
+			dragClass={winDragClass}
+			{canDrag}
+			onpointerdown={(e) => handleSidePointerDown('win', e)}
+			onpointermove={handleSidePointerMove}
+			onpointerup={handleSidePointerUp}
+			onpointercancel={handleSidePointerCancel}
+		/>
 
-		<div class="flex-1 min-w-0">
-			<!-- Device info row -->
-			<div class="flex items-center gap-2 flex-wrap">
-				<span class="font-medium text-sm">{deviceName}</span>
-				<span class="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
-					{pair.windowsDevice.address}
-				</span>
-				<span class="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-					{pair.windowsDevice.device_type}
-				</span>
-			</div>
-
-			<!-- Sync summary -->
-			{#if pair.comparison.overallStatus === 'synced'}
-				<p class="text-xs text-green-600 dark:text-green-400 mt-1">All keys match</p>
-			{:else if syncChanges.length > 0}
-				<p class="text-xs text-muted-foreground mt-1">
-					Will copy: {syncChanges.join(', ')}
-					<span class="font-medium">
-						{direction === 'win_to_linux' ? 'Windows' : 'Linux'}
-					</span>
-					<ArrowRight class="inline h-3 w-3 mx-0.5" />
-					<span class="font-medium">
-						{direction === 'win_to_linux' ? 'Linux' : 'Windows'}
-					</span>
-				</p>
-			{:else}
-				<p class="text-xs text-muted-foreground mt-1">No keys to copy</p>
-			{/if}
-
-			<!-- Direction toggle -->
-			{#if !readonly && pair.comparison.overallStatus !== 'synced'}
-				<div class="flex items-center gap-1 mt-2">
-					<div class="inline-flex rounded-md border border-input text-xs">
-						<button
-							class="px-2 py-1 rounded-l-md transition-colors {direction === 'win_to_linux'
-								? 'bg-primary text-primary-foreground'
-								: 'hover:bg-muted'}"
-							onclick={() => ondirectionchange?.('win_to_linux')}
-						>
-							Win <ArrowRight class="inline h-3 w-3" /> Lin
-						</button>
-						<button
-							class="px-2 py-1 rounded-r-md transition-colors {direction === 'linux_to_win'
-								? 'bg-primary text-primary-foreground'
-								: 'hover:bg-muted'}"
-							onclick={() => ondirectionchange?.('linux_to_win')}
-						>
-							Lin <ArrowRight class="inline h-3 w-3" /> Win
-						</button>
-					</div>
+		<!-- Center: Direction picker or synced indicator -->
+		<div class="flex flex-col items-center gap-1 shrink-0">
+			{#if isSynced}
+				<div
+					class="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium"
+				>
+					<Check class="h-4 w-4" />
+					<span>synced</span>
+				</div>
+			{:else if !readonly}
+				<div class="inline-flex rounded-md border border-input text-xs">
 					<button
-						class="ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors"
-						onclick={() => (expanded = !expanded)}
+						class="px-2 py-1.5 rounded-l-md transition-colors {direction === 'win_to_linux'
+							? 'bg-primary text-primary-foreground'
+							: 'hover:bg-muted text-muted-foreground'}"
+						onclick={() => ondirectionchange?.('win_to_linux')}
+						title="Copy Windows keys to Linux"
 					>
-						{expanded ? 'Hide' : 'Show'} details
+						<ArrowRight class="h-3 w-3" />
+					</button>
+					<button
+						class="px-2 py-1.5 rounded-r-md transition-colors {direction === 'linux_to_win'
+							? 'bg-primary text-primary-foreground'
+							: 'hover:bg-muted text-muted-foreground'}"
+						onclick={() => ondirectionchange?.('linux_to_win')}
+						title="Copy Linux keys to Windows"
+					>
+						<ArrowRight class="h-3 w-3 rotate-180" />
 					</button>
 				</div>
-			{:else}
-				<button
-					class="mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-					onclick={() => (expanded = !expanded)}
-				>
-					{expanded ? 'Hide' : 'Show'} details
-				</button>
+				{#if direction === null}
+					<span class="text-[10px] text-muted-foreground/60">pick direction</span>
+				{/if}
 			{/if}
 		</div>
+
+		<!-- Linux device mini-card -->
+		<PairSideMiniCard
+			device={pair.linuxDevice}
+			os="Linux"
+			side="right"
+			dragClass={linDragClass}
+			{canDrag}
+			onpointerdown={(e) => handleSidePointerDown('lin', e)}
+			onpointermove={handleSidePointerMove}
+			onpointerup={handleSidePointerUp}
+			onpointercancel={handleSidePointerCancel}
+		/>
+
+		<!-- Unmatch button -->
+		{#if onunlink}
+			<button
+				class="shrink-0 p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+				onclick={() => onunlink?.()}
+				title="Unmatch these devices"
+			>
+				<X class="h-4 w-4" />
+			</button>
+		{/if}
+	</div>
+
+	<!-- Bottom bar: sync info + details toggle -->
+	<div class="px-3 pb-2 flex items-center justify-between">
+		<div class="flex items-center gap-2">
+			{#if direction && syncChanges.length > 0 && !isSynced}
+				<span class="text-xs text-muted-foreground">
+					{syncChanges.length} key{syncChanges.length !== 1 ? 's' : ''} to copy
+				</span>
+			{/if}
+		</div>
+		<button
+			class="text-xs text-muted-foreground hover:text-foreground transition-colors"
+			onclick={() => (expanded = !expanded)}
+		>
+			{expanded ? 'Hide' : 'Show'} details
+		</button>
 	</div>
 
 	<!-- Expanded key comparison table -->
@@ -151,7 +233,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each [...pair.comparison.linkKey, ...pair.comparison.leData] as field}
+					{#each [...pair.comparison.linkKey, ...pair.comparison.leData].filter((f) => f.status !== 'both_missing') as field}
 						{@const si = statusIcon(field.status)}
 						<tr class="border-t border-border/50">
 							<td class="py-1 text-muted-foreground">{field.label}</td>

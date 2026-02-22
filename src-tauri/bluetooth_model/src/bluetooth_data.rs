@@ -1,6 +1,29 @@
 use chrono::{DateTime, Utc};
 use mac_address::MacAddress;
 
+/// Deserializes an `Option<u32>` from either a JSON number or a JSON string.
+mod string_or_u32 {
+    use serde::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum StringOrU32 {
+            U32(u32),
+            Str(String),
+        }
+
+        match Option::<StringOrU32>::deserialize(deserializer)? {
+            Some(StringOrU32::U32(v)) => Ok(Some(v)),
+            Some(StringOrU32::Str(s)) => Ok(s.parse().ok()),
+            None => Ok(None),
+        }
+    }
+}
+
 #[app_macros::ipc_type]
 pub struct BluetoothData {
     pub host: HostDistributions,
@@ -62,39 +85,33 @@ pub struct DeviceID {
 #[app_macros::ipc_type]
 pub struct BluetoothLinkKey {
     pub key: String,
+    pub key_type: Option<u8>,
+    pub pin_length: Option<u8>,
+}
+
+#[app_macros::ipc_type]
+pub struct LongTermKeyData {
+    pub key: String,
+    pub authenticated: Option<u8>,
+    pub key_length: Option<u32>,
+    #[serde(default, deserialize_with = "string_or_u32::deserialize")]
+    pub ediv: Option<u32>,
+    pub rand: Option<String>,
+}
+
+#[app_macros::ipc_type]
+pub struct SignatureKeyData {
+    pub key: String,
+    pub counter: Option<u32>,
+    pub authenticated: Option<u8>,
 }
 
 #[app_macros::ipc_type]
 pub struct BluetoothLowEnergyKey {
+    pub long_term_key: Option<LongTermKeyData>,
+    pub peripheral_long_term_key: Option<LongTermKeyData>,
     pub identity_resolving_key: Option<String>,
-    pub local_signature_key: Option<String>,
-    pub long_term_key: Option<String>,
-    pub key_length: Option<u32>,
-    pub ediv: Option<String>,
-    pub rand: Option<String>,
-}
-
-impl BluetoothLowEnergyKey {
-    pub fn rank_validity(&self) -> u8 {
-        let mut rank = 0;
-        if self.long_term_key.is_some() {
-            rank += 4;
-        }
-        if self.identity_resolving_key.is_some() {
-            rank += 2;
-        }
-        if self.local_signature_key.is_some() {
-            rank += 1;
-        }
-        if self.key_length.is_some() {
-            rank += 1;
-        }
-        if self.ediv.is_some() {
-            rank += 1;
-        }
-        if self.rand.is_some() {
-            rank += 1;
-        }
-        rank
-    }
+    pub local_signature_key: Option<SignatureKeyData>,
+    pub remote_signature_key: Option<SignatureKeyData>,
+    pub address_type: Option<String>,
 }

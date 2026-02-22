@@ -1,5 +1,6 @@
 use bluetooth_model::{
-    BluetoothController, BluetoothData, BluetoothDevice, BluetoothDeviceType, BluetoothLinkKey, BluetoothLowEnergyKey, HostDistributions
+    BluetoothController, BluetoothData, BluetoothDevice, BluetoothDeviceType, BluetoothLinkKey,
+    BluetoothLowEnergyKey, LongTermKeyData, SignatureKeyData, HostDistributions,
 };
 use chrono::Utc;
 use mac_address::MacAddress;
@@ -28,7 +29,7 @@ pub async fn extract_hive_data(
             let root_key = hive.root_key_node()
                 .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?;
 
-            let key_paths = [
+            let bthport_paths = [
                 r"ControlSet001\Services\BTHPORT\Parameters\Keys",
                 r"ControlSet002\Services\BTHPORT\Parameters\Keys",
                 r"CurrentControlSet\Services\BTHPORT\Parameters\Keys",
@@ -37,45 +38,140 @@ pub async fn extract_hive_data(
                 r"CurrentControlSet\services\BTHPORT\Parameters\Keys",
             ];
 
-            for key_path in key_paths.iter() {
-                if let Ok(key) = root_key.subpath(*key_path, &mut hive) {
-                    if key.is_none() {
-                        continue;
-                    }
-                    let key = key.unwrap();
-                    let mut controllers = Vec::new();
+            // Maps controller MAC -> HashMap<device MAC -> (link_key, le_data)>
+            let mut controller_devices: HashMap<String, HashMap<String, (Option<BluetoothLinkKey>, Option<BluetoothLowEnergyKey>)>> = HashMap::new();
 
+            // Scan BTHPORT (Classic + some LE devices)
+            for key_path in bthport_paths.iter() {
+                if let Ok(Some(key)) = root_key.subpath(*key_path, &mut hive) {
                     for subkey in key.borrow().subkeys(&mut hive)
                         .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?.iter() {
                         let controller_address = subkey.borrow().name().to_string();
 
-                        println!("Found controller: {}", controller_address);
-                        println!(
-                            "It has {} devices connected",
-                            subkey.borrow().subkey_count() as usize
-                                + subkey.borrow().values().len()
-                        );
+                        println!("Found BTHPORT controller: {}", controller_address);
 
                         let devices = parse_controller_devices(&subkey.borrow(), &root_key, &mut hive)?;
-
-                        let controller = BluetoothController {
-                            name: None,
-                            address: MacAddress::from_str(&controller_address)
-                                .unwrap_or(MacAddress::default()),
-                            devices,
-                        };
-                        controllers.push(controller);
+                        let device_map = controller_devices.entry(controller_address).or_default();
+                        for dev in devices {
+                            let mac = dev.address.to_string().replace(":", "").to_uppercase();
+                            device_map.insert(mac, (dev.link_key, dev.le_data));
+                        }
                     }
-
-                    return Ok(BluetoothData {
-                        host: HostDistributions::Windows,
-                        controllers,
-                        utc_timestamp: Utc::now(),
-                        source_path: hive_path_str,
-                    });
+                    break; // Use first found ControlSet
                 }
             }
-            Ok(BluetoothData::default())
+
+            // Scan BTHLE (pure-LE devices not under BTHPORT)
+            let bthle_paths = [
+                r"ControlSet001\Services\BTHLE\Parameters\Keys",
+                r"ControlSet002\Services\BTHLE\Parameters\Keys",
+                r"CurrentControlSet\Services\BTHLE\Parameters\Keys",
+                r"ControlSet001\services\BTHLE\Parameters\Keys",
+                r"ControlSet002\services\BTHLE\Parameters\Keys",
+                r"CurrentControlSet\services\BTHLE\Parameters\Keys",
+            ];
+
+            for key_path in bthle_paths.iter() {
+                if let Ok(Some(key)) = root_key.subpath(*key_path, &mut hive) {
+                    for adapter_subkey in key.borrow().subkeys(&mut hive)
+                        .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?.iter() {
+                        let controller_address = adapter_subkey.borrow().name().to_string();
+                        println!("Found BTHLE controller: {}", controller_address);
+
+                        let device_map = controller_devices.entry(controller_address).or_default();
+
+                        for device_subkey in adapter_subkey.borrow().subkeys(&mut hive)
+                            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?.iter() {
+                            let device_key = device_subkey.borrow();
+                            let device_mac = device_key.name().to_string();
+                            let device_info = device_key.values();
+
+                            let get_binary_hex = |name: &str| -> Option<String> {
+                                device_info
+                                    .iter()
+                                    .find(|x| x.name() == name)
+                                    .and_then(|x| match x.value() {
+                                        RegistryValue::RegBinary(bytes) => {
+                                            Some(bytes.iter().map(|b| format!("{:02X}", b)).collect())
+                                        }
+                                        _ => None,
+                                    })
+                            };
+
+                            let get_dword = |name: &str| -> Option<u32> {
+                                device_info
+                                    .iter()
+                                    .find(|x| x.name() == name)
+                                    .and_then(|x| match x.value() {
+                                        RegistryValue::RegDWord(v) => Some(*v),
+                                        _ => None,
+                                    })
+                            };
+
+                            let get_qword_string = |name: &str| -> Option<String> {
+                                device_info
+                                    .iter()
+                                    .find(|x| x.name() == name)
+                                    .and_then(|x| match x.value() {
+                                        RegistryValue::RegQWord(v) => Some(v.to_string()),
+                                        _ => None,
+                                    })
+                            };
+
+                            if let Some(le_data) = parse_le_values(&get_binary_hex, &get_dword, &get_qword_string) {
+                                let entry = device_map.entry(device_mac).or_insert((None, None));
+                                if entry.1.is_none() {
+                                    entry.1 = Some(le_data);
+                                }
+                            }
+                        }
+                    }
+                    break; // Use first found ControlSet
+                }
+            }
+
+            if controller_devices.is_empty() {
+                return Ok(BluetoothData::default());
+            }
+
+            // Build final controllers list
+            let mut controllers = Vec::new();
+            for (controller_mac, device_map) in controller_devices {
+                let mut devices = Vec::new();
+                for (device_mac, (link_key, le_data)) in &device_map {
+                    let device_name = get_device_name_from_cache(&root_key, device_mac, &mut hive)
+                        .unwrap_or_else(|| device_mac.clone());
+
+                    let device_type = match (&link_key, &le_data) {
+                        (Some(_), Some(_)) => BluetoothDeviceType::DualMode,
+                        (Some(_), None) => BluetoothDeviceType::Classic,
+                        (None, Some(_)) => BluetoothDeviceType::LowEnergy,
+                        (None, None) => continue,
+                    };
+
+                    devices.push(BluetoothDevice {
+                        name: Some(device_name),
+                        address: MacAddress::from_str(device_mac).unwrap_or(MacAddress::default()),
+                        device_id: None,
+                        device_type,
+                        link_key: link_key.clone(),
+                        le_data: le_data.clone(),
+                    });
+                }
+
+                controllers.push(BluetoothController {
+                    name: None,
+                    address: MacAddress::from_str(&controller_mac).unwrap_or(MacAddress::default()),
+                    devices,
+                });
+            }
+
+            Ok(BluetoothData {
+                host: HostDistributions::Windows,
+                controllers,
+                utc_timestamp: Utc::now(),
+                source_path: hive_path_str,
+            })
         },
     )
     .await??;
@@ -97,23 +193,41 @@ fn parse_controller_devices(
         let device_mac = device_key.name().to_string();
         let device_info = device_key.values();
 
-        let get_value = |name: &str| {
+        let get_binary_hex = |name: &str| -> Option<String> {
             device_info
                 .iter()
                 .find(|x| x.name() == name)
-                .map(|x| x.value().to_string())
+                .and_then(|x| match x.value() {
+                    RegistryValue::RegBinary(bytes) => {
+                        Some(bytes.iter().map(|b| format!("{:02X}", b)).collect())
+                    }
+                    _ => None,
+                })
         };
 
-        let le_data = BluetoothLowEnergyKey {
-            identity_resolving_key: get_value("IRK"),
-            local_signature_key: get_value("CSRK"),
-            long_term_key: get_value("LTK"),
-            key_length: get_value("KeyLength").and_then(|s| s.parse().ok()),
-            rand: get_value("ERand"),
-            ediv: get_value("EDIV"),
+        let get_dword = |name: &str| -> Option<u32> {
+            device_info
+                .iter()
+                .find(|x| x.name() == name)
+                .and_then(|x| match x.value() {
+                    RegistryValue::RegDWord(v) => Some(*v),
+                    _ => None,
+                })
         };
 
-        device_map.insert(device_mac, (None, Some(le_data)));
+        let get_qword_string = |name: &str| -> Option<String> {
+            device_info
+                .iter()
+                .find(|x| x.name() == name)
+                .and_then(|x| match x.value() {
+                    RegistryValue::RegQWord(v) => Some(v.to_string()),
+                    _ => None,
+                })
+        };
+
+        let le_data = parse_le_values(&get_binary_hex, &get_dword, &get_qword_string);
+
+        device_map.insert(device_mac, (None, le_data));
     }
 
     // Second pass: collect Classic devices (values)
@@ -124,13 +238,15 @@ fn parse_controller_devices(
         }
 
         let device_mac = device_connected.name().to_string();
-        let link_key_string = device_connected.value().to_string();
-        let link_key = if link_key_string.is_empty() {
-            None
-        } else {
-            Some(BluetoothLinkKey {
-                key: link_key_string,
-            })
+        let link_key = match device_connected.value() {
+            RegistryValue::RegBinary(bytes) if !bytes.is_empty() => {
+                Some(BluetoothLinkKey {
+                    key: bytes.iter().map(|b| format!("{:02X}", b)).collect(),
+                    key_type: None,
+                    pin_length: None,
+                })
+            }
+            _ => None,
         };
 
         if let Some(entry) = device_map.get_mut(&device_mac) {
@@ -166,6 +282,45 @@ fn parse_controller_devices(
     }
 
     Ok(devices)
+}
+
+fn parse_le_values(
+    get_binary_hex: &dyn Fn(&str) -> Option<String>,
+    get_dword: &dyn Fn(&str) -> Option<u32>,
+    get_qword_string: &dyn Fn(&str) -> Option<String>,
+) -> Option<BluetoothLowEnergyKey> {
+    let ltk_key = get_binary_hex("LTK");
+    let long_term_key = ltk_key.map(|key| LongTermKeyData {
+        key,
+        authenticated: None,
+        key_length: get_dword("KeyLength"),
+        ediv: get_dword("EDIV"),
+        rand: get_qword_string("ERand"),
+    });
+    let local_csrk = get_binary_hex("CSRK").map(|key| SignatureKeyData {
+        key,
+        counter: None,
+        authenticated: None,
+    });
+    let remote_csrk = get_binary_hex("CSRKInbound").map(|key| SignatureKeyData {
+        key,
+        counter: None,
+        authenticated: None,
+    });
+    let irk = get_binary_hex("IRK");
+
+    if long_term_key.is_none() && irk.is_none() {
+        return None;
+    }
+
+    Some(BluetoothLowEnergyKey {
+        long_term_key,
+        peripheral_long_term_key: None,
+        identity_resolving_key: irk,
+        local_signature_key: local_csrk,
+        remote_signature_key: remote_csrk,
+        address_type: None,
+    })
 }
 
 fn get_device_name_from_cache(
@@ -238,11 +393,11 @@ fn get_device_name_from_cache(
 
 fn extract_string(reg: &RegistryValue) -> Option<String> {
     match reg {
-        RegistryValue::RegSZ(s) => Some(s.trim().to_owned()),
-        RegistryValue::RegExpandSZ(s) => Some(s.trim().to_owned()),
+        RegistryValue::RegSZ(s) => Some(s.trim().trim_end_matches('\0').to_owned()),
+        RegistryValue::RegExpandSZ(s) => Some(s.trim().trim_end_matches('\0').to_owned()),
         RegistryValue::RegBinary(b) => {
             if let Ok(s) = String::from_utf8(b.to_vec()) {
-                Some(s.trim().to_owned())
+                Some(s.trim().trim_end_matches('\0').to_owned())
             } else {
                 None
             }

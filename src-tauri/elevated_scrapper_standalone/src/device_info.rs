@@ -1,8 +1,7 @@
 use std::path::Path;
-use bluetooth_model::{BluetoothLowEnergyKey, DeviceID, BluetoothLinkKey};
+use bluetooth_model::{BluetoothLowEnergyKey, LongTermKeyData, SignatureKeyData, DeviceID, BluetoothLinkKey};
 use ini::Ini;
 use mac_address::MacAddress;
-// use bluetooth_model::{DeviceID, LinkKey, LongTermKey, SignatureKey, IdentityResolvingKey, BluetoothLowEnergyData};
 
 #[derive(Debug, Clone)]
 pub struct DeviceInfo {
@@ -104,128 +103,109 @@ impl DeviceInfo {
 
         Some(BluetoothLinkKey {
             key,
-            // pin_length: section.get("PINLength").and_then(|s| s.parse().ok()),
+            key_type: section.get("Type").and_then(|s| s.parse().ok()),
+            pin_length: section.get("PINLength").and_then(|s| s.parse().ok()),
         })
     }
 
     pub fn set_link_key(&mut self, link_key: Option<BluetoothLinkKey>) {
         if let Some(key) = link_key {
             self.ini.with_section(Some("LinkKey")).set("Key", &key.key);
-            // self.set_option_helper("LinkKey", "Type", key.key_type.map(|v| v.to_string()));
-            // self.set_option_helper("LinkKey", "PINLength", key.pin_length.map(|v| v.to_string()));
+            self.set_option_helper("LinkKey", "Type", key.key_type.map(|v| v.to_string()));
+            self.set_option_helper("LinkKey", "PINLength", key.pin_length.map(|v| v.to_string()));
         } else {
             self.ini.delete(Some("LinkKey"));
         }
     }
 
     pub fn le_pairing_data(&self) -> Option<BluetoothLowEnergyKey> {
-        //  {
-        //     long_term_key: self.parse_long_term_key("LongTermKey"),
-        //     peripheral_long_term_key: self.parse_long_term_key("PeripheralLongTermKey"),
-        //     slave_long_term_key: self.parse_long_term_key("SlaveLongTermKey"),
-        //     local_signature_key: self.parse_signature_key("LocalSignatureKey"),
-        //     remote_signature_key: self.parse_signature_key("RemoteSignatureKey"),
-        //     identity_resolving_key: self.parse_identity_resolving_key("IdentityResolvingKey"),
-        // }
-
-        // We want to select the most relevant LTK section based on the presence of keys.
-        let mut options = [
-            self.parse_long_term_key("LongTermKey"),
-            self.parse_long_term_key("PeripheralLongTermKey"),
-            self.parse_long_term_key("SlaveLongTermKey"),
-        ];
-        options.sort_by_key(|x| {
-            x.as_ref().map_or(0, |key| key.rank_validity())
-        });
-
-        // Select the first valid LTK section
-        let long_term_key = options.into_iter().find_map(|x| x);
-
-        if long_term_key.is_none() {
-            return None;
-        }
-        let long_term_key = long_term_key.unwrap();
-
+        let long_term_key = self.parse_long_term_key("LongTermKey");
+        let peripheral_long_term_key = self.parse_long_term_key("PeripheralLongTermKey")
+            .or_else(|| self.parse_long_term_key("SlaveLongTermKey"));
         let local_signature_key = self.parse_signature_key("LocalSignatureKey");
         let remote_signature_key = self.parse_signature_key("RemoteSignatureKey");
         let identity_resolving_key = self.parse_identity_resolving_key("IdentityResolvingKey");
+        let address_type = self.ini.section(Some("General"))
+            .and_then(|s| s.get("AddressType").map(|v| v.to_string()));
+
+        if long_term_key.is_none() && peripheral_long_term_key.is_none() && identity_resolving_key.is_none() {
+            return None;
+        }
 
         Some(BluetoothLowEnergyKey {
-            long_term_key: long_term_key.long_term_key,
-            key_length: long_term_key.key_length,
-            ediv: long_term_key.ediv,
-            rand: long_term_key.rand,
+            long_term_key,
+            peripheral_long_term_key,
             identity_resolving_key,
-            local_signature_key: local_signature_key.or(remote_signature_key),
+            local_signature_key,
+            remote_signature_key,
+            address_type,
         })
     }
 
     pub fn set_le_pairing_data(&mut self, data: BluetoothLowEnergyKey) {
-        let has_ltk_section = self.ini.section(Some("LongTermKey")).is_some();
-        let has_peripheral_ltk_section = self.ini.section(Some("PeripheralLongTermKey")).is_some();
-        let has_slave_ltk_section = self.ini.section(Some("SlaveLongTermKey")).is_some();
+        // Write LongTermKey
+        self.set_long_term_key("LongTermKey", data.long_term_key.as_ref());
 
-        let has_any_ltk_section = has_ltk_section || has_peripheral_ltk_section || has_slave_ltk_section;
-
-        if has_any_ltk_section {
-            if has_ltk_section {
-                self.set_long_term_key("LongTermKey", Some(data.clone()));
-            }
-            if has_peripheral_ltk_section {
-                self.set_long_term_key("PeripheralLongTermKey", Some(data.clone()));
-            }
-            if has_slave_ltk_section {
-                self.set_long_term_key("SlaveLongTermKey", Some(data.clone()));
-            }
-        } else {
-            self.set_long_term_key("LongTermKey", Some(data.clone()));
+        // Write PeripheralLongTermKey (and SlaveLongTermKey if it already exists)
+        self.set_long_term_key("PeripheralLongTermKey", data.peripheral_long_term_key.as_ref());
+        if self.ini.section(Some("SlaveLongTermKey")).is_some() {
+            self.set_long_term_key("SlaveLongTermKey", data.peripheral_long_term_key.as_ref());
         }
 
-        if data.local_signature_key.is_some() || self.ini.section(Some("LocalSignatureKey")).is_some() {
-            self.set_signature_key("LocalSignatureKey", &data.local_signature_key);
-            self.set_signature_key("RemoteSignatureKey", &data.local_signature_key);
-        }
+        // Write signature keys separately (fixes the old bug that wrote local to both)
+        self.set_signature_key("LocalSignatureKey", data.local_signature_key.as_ref());
+        self.set_signature_key("RemoteSignatureKey", data.remote_signature_key.as_ref());
+
         if data.identity_resolving_key.is_some() || self.ini.section(Some("IdentityResolvingKey")).is_some() {
             self.set_identity_resolving_key("IdentityResolvingKey", data.identity_resolving_key);
         }
+
+        if let Some(addr_type) = data.address_type {
+            self.ini.with_section(Some("General")).set("AddressType", &addr_type);
+        }
     }
 
-    fn parse_long_term_key(&self, section_name: &str) -> Option<BluetoothLowEnergyKey> {
+    fn parse_long_term_key(&self, section_name: &str) -> Option<LongTermKeyData> {
         let section = self.ini.section(Some(section_name))?;
-        let key = section.get("Key").map(|s| s.to_string());
+        let key = section.get("Key")?.to_string();
 
-        Some(BluetoothLowEnergyKey {
-            long_term_key: key,
+        Some(LongTermKeyData {
+            key,
+            authenticated: section.get("Authenticated").and_then(|s| s.parse().ok()),
             key_length: section.get("EncSize").and_then(|s| s.parse().ok()),
             ediv: section.get("EDiv").and_then(|s| s.parse().ok()),
-            rand: section.get("Rand").and_then(|s| s.parse().ok()),
-            identity_resolving_key: None,
-            local_signature_key: None,
+            rand: section.get("Rand").map(|s| s.to_string()),
         })
     }
 
-    fn set_long_term_key(&mut self, section_name: &str, ltk: Option<BluetoothLowEnergyKey>) {
-        if let Some(key) = ltk.filter(|key| key.long_term_key.is_some()) {
-
-            self.ini.with_section(Some(section_name)).set("Key", &key.long_term_key.unwrap());
+    fn set_long_term_key(&mut self, section_name: &str, ltk: Option<&LongTermKeyData>) {
+        if let Some(key) = ltk {
+            self.ini.with_section(Some(section_name)).set("Key", &key.key);
+            self.set_option_helper(section_name, "Authenticated", key.authenticated.map(|v| v.to_string()));
             self.set_option_helper(section_name, "EncSize", key.key_length.map(|v| v.to_string()));
             self.set_option_helper(section_name, "EDiv", key.ediv.map(|v| v.to_string()));
-            self.set_option_helper(section_name, "Rand", key.rand.map(|v| v.to_string()));
+            self.set_option_helper(section_name, "Rand", key.rand.clone());
         } else {
             self.ini.delete(Some(section_name));
         }
     }
 
-    fn parse_signature_key(&self, section_name: &str) -> Option<String> {
+    fn parse_signature_key(&self, section_name: &str) -> Option<SignatureKeyData> {
         let section = self.ini.section(Some(section_name))?;
-        let key = section.get("Key").map(|s| s.to_string());
+        let key = section.get("Key")?.to_string();
 
-        return key;
+        Some(SignatureKeyData {
+            key,
+            counter: section.get("Counter").and_then(|s| s.parse().ok()),
+            authenticated: section.get("Authenticated").and_then(|s| s.parse().ok()),
+        })
     }
 
-    fn set_signature_key(&mut self, section_name: &str, sig_key: &Option<String>) {
+    fn set_signature_key(&mut self, section_name: &str, sig_key: Option<&SignatureKeyData>) {
         if let Some(key) = sig_key {
-            self.ini.with_section(Some(section_name)).set("Key", key);
+            self.ini.with_section(Some(section_name)).set("Key", &key.key);
+            self.set_option_helper(section_name, "Counter", key.counter.map(|v| v.to_string()));
+            self.set_option_helper(section_name, "Authenticated", key.authenticated.map(|v| v.to_string()));
         } else {
             self.ini.delete(Some(section_name));
         }
