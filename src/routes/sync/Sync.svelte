@@ -1,71 +1,38 @@
-<script lang="ts" module>
-	export type MatchedControllers = {windows: BluetoothController | null, linux: BluetoothController | null}[];
-</script>
-
 <script lang="ts">
-	import type { BluetoothController, BluetoothData } from "#root/bindings";
-	import type { Edge } from "@xyflow/svelte";
-	import ChangeRequest from "@/components/bluetooth/syncing/ChangeRequest.svelte";
-	import DeviceCanvas from "@/components/bluetooth/syncing/nodeCanvas/DeviceCanvas.svelte";
-	import { btStore } from "@/state";
+	import { untrack } from 'svelte';
+	import { btStore } from '@/state';
+	import { matchAllDevices, initSelections, type SyncSelections } from '@/components/bluetooth/syncing/matching';
+	import DeviceMatchList from '@/components/bluetooth/syncing/DeviceMatchList.svelte';
+	import SyncActionBar from '@/components/bluetooth/syncing/SyncActionBar.svelte';
 
-	function matchControllers(windows: BluetoothData | null, linux: BluetoothData | null) {
-		if (!windows || !linux) return [];
-		const aControllers = windows.controllers || [];
-		const bControllers = linux.controllers || [];
+	let matchResult = $derived(matchAllDevices(btStore.state.windows, btStore.state.linux));
 
-		let unmatchedBController = new Set(bControllers.map(controller => controller.address));
+	let selections: SyncSelections = $state(new Map());
 
-		let mapping: MatchedControllers = [];
-		for (const aController of aControllers) {
-			const matchedController = bControllers.find(bController => bController.address === aController.address);
+	// Re-initialize selections when match data changes, preserving existing user choices
+	$effect(() => {
+		// Track matchResult (the dependency we care about)
+		const fresh = initSelections(matchResult);
 
-			if (matchedController) {
-				mapping.push({
-					windows: aController,
-					linux: matchedController
-				});
+		// Read current selections without creating a dependency
+		const current = untrack(() => selections);
+		const merged: SyncSelections = new Map();
 
-				unmatchedBController.delete(matchedController.address);
-
+		for (const [key, freshSel] of fresh) {
+			const existing = current.get(key);
+			if (existing) {
+				merged.set(key, existing);
 			} else {
-				mapping.push({
-					windows: aController,
-					linux: null
-				});
+				merged.set(key, freshSel);
 			}
 		}
 
-		for (const bController of unmatchedBController) {
-			const unmatchedController = bControllers.find(controller => controller.address === bController);
-			if (unmatchedController) {
-				mapping.push({
-					windows: null,
-					linux: unmatchedController
-				});
-			}
-		}
-
-
-		// We now have a mapping of controllers from both datasets
-		// Let's sort them by the number of devices they have
-		mapping.sort((a, b) => {
-			const aDevices = (a.windows?.devices?.length || 0) + (a.linux?.devices?.length || 0);
-			const bDevices = (b.windows?.devices?.length || 0) + (b.linux?.devices?.length || 0);
-
-			return bDevices - aDevices; // Sort descending by number of devices
-		});
-
-		return mapping;
-	}
-
-	let matchedControllers = $derived(matchControllers(btStore.state.windows, btStore.state.linux))
-	let edges = $state([]);
-
+		selections = merged;
+	});
 </script>
 
-<div class="p-4 mx-auto">
-	<DeviceCanvas {matchedControllers} bind:edges />
+<div class="p-4 max-w-4xl mx-auto">
+	<DeviceMatchList {matchResult} bind:selections />
 </div>
 
-<ChangeRequest {edges} />
+<SyncActionBar {matchResult} {selections} />
