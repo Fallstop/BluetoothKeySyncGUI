@@ -11,23 +11,22 @@ use tokio::task;
 
 pub async fn extract_hive_data(
     hive_path: &Path,
-) -> Result<BluetoothData, Box<dyn std::error::Error + Send + Sync>> {
+) -> std::result::Result<BluetoothData, Box<dyn std::error::Error + Send + Sync>> {
     let hive_path_str = hive_path.to_string_lossy().to_string();
     let path_buf = hive_path.to_path_buf();
 
     let bluetooth_data = task::spawn_blocking(
-        move || -> Result<BluetoothData, Box<dyn std::error::Error + Send + Sync>> {
+        move || -> std::result::Result<BluetoothData, Box<dyn std::error::Error + Send + Sync>> {
             let hive_file = File::open(path_buf)?;
-            let hive_result = Hive::new(hive_file, HiveParseMode::NormalWithBaseBlock);
-            if let Err(e) = hive_result {
-                let message = format!("Failed to open hive file: {}", e);
-                return Err(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    message,
-                )));
-            }
-            let mut hive = hive_result.unwrap();
-            let root_key = hive.root_key_node()?;
+            let mut hive = Hive::new(hive_file, HiveParseMode::NormalWithBaseBlock)
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+                    Box::new(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("Failed to open hive file: {}", e),
+                    ))
+                })?;
+            let root_key = hive.root_key_node()
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?;
 
             let key_paths = [
                 r"ControlSet001\Services\BTHPORT\Parameters\Keys",
@@ -46,7 +45,8 @@ pub async fn extract_hive_data(
                     let key = key.unwrap();
                     let mut controllers = Vec::new();
 
-                    for subkey in key.borrow().subkeys(&mut hive)?.iter() {
+                    for subkey in key.borrow().subkeys(&mut hive)
+                        .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?.iter() {
                         let controller_address = subkey.borrow().name().to_string();
 
                         println!("Found controller: {}", controller_address);
@@ -87,11 +87,12 @@ fn parse_controller_devices(
     controller_key: &KeyNode,
     root_key: &KeyNode,
     hive: &mut Hive<File, CleanHive>,
-) -> Result<Vec<BluetoothDevice>, Box<dyn std::error::Error + Send + Sync>> {
+) -> std::result::Result<Vec<BluetoothDevice>, Box<dyn std::error::Error + Send + Sync>> {
     let mut device_map: HashMap<String, (Option<BluetoothLinkKey>, Option<BluetoothLowEnergyKey>)> = HashMap::new();
 
     // First pass: collect LE devices (subkeys)
-    for device_connected in (*controller_key.subkeys(hive)?).iter() {
+    for device_connected in (*controller_key.subkeys(hive)
+        .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?).iter() {
         let device_key = device_connected.borrow();
         let device_mac = device_key.name().to_string();
         let device_info = device_key.values();
