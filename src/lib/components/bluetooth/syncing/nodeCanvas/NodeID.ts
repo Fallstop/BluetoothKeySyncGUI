@@ -26,9 +26,9 @@ export class NodeID {
 			return null;
 		}
 
-		const os = id[0] as HostDistributions;
-		const controller = id[1];
-		const device = id[2];
+		const os = parts[0] as HostDistributions;
+		const controller = parts[1];
+		const device = parts[2];
 
 		return new NodeID(os, controller, device);
 	}

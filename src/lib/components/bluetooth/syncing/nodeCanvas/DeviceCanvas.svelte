@@ -1,6 +1,7 @@
 <script lang="ts" module>
 	export type DeviceCanvasProps = {
-		matchedControllers: MatchedControllers
+		matchedControllers: MatchedControllers;
+		edges?: Edge[];
 	};
 </script>
 
@@ -16,7 +17,7 @@
 	import { remToPixels } from "./utils";
 	import { NodeID } from "./NodeID"
 
-	let { matchedControllers }: DeviceCanvasProps =	$props();
+	let { matchedControllers, edges = $bindable([]) }: DeviceCanvasProps =	$props();
 
 	const nodeTypes = { deviceNode: DeviceNode, controllerNode: ControllerGroupNode };
 
@@ -105,8 +106,6 @@
 
 
 	let nodes = $state.raw<Node[]>(deriveNodes(matchedControllers));
-
-	let edges = $state.raw<Edge[]>([]);
 
 	$effect(()=>{
 		const knownNodes = new Set();

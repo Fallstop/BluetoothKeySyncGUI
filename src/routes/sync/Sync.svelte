@@ -4,6 +4,7 @@
 
 <script lang="ts">
 	import type { BluetoothController, BluetoothData } from "#root/bindings";
+	import type { Edge } from "@xyflow/svelte";
 	import ChangeRequest from "@/components/bluetooth/syncing/ChangeRequest.svelte";
 	import DeviceCanvas from "@/components/bluetooth/syncing/nodeCanvas/DeviceCanvas.svelte";
 	import { btStore } from "@/state";
@@ -59,12 +60,12 @@
 	}
 
 	let matchedControllers = $derived(matchControllers(btStore.state.windows, btStore.state.linux))
+	let edges = $state([]);
 
 </script>
 
 <div class="p-4 mx-auto">
-	<DeviceCanvas {matchedControllers} />
+	<DeviceCanvas {matchedControllers} bind:edges />
 </div>
 
-
-<ChangeRequest />
+<ChangeRequest {edges} />
