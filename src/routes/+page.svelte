@@ -1,42 +1,101 @@
 <script lang="ts">
-	import { Button } from "$lib/components/ui/button";
-	import { invoke } from "@tauri-apps/api/core";
-	import ConfigWindows from "./ConfigWindows.svelte";
-	import ConfigLinux from "./ConfigLinux.svelte";
-	import * as Card from "@/components/ui/card";
-	import { btStore } from "@/state";
+	import SetupWizard from '$lib/components/SetupWizard.svelte';
+	import { goto } from '$app/navigation';
+	import { open } from '@tauri-apps/plugin-dialog';
+	import { rpc } from '@/api';
+	import { btStore, windowsState } from '@/state';
 
-	let name = $state("");
-	let greetMsg = $state("");
+	let windowsLoading = $state(false);
+	let linuxLoading = $state(false);
+	let windowsError: string | null = $state(null);
+	let linuxError: string | null = $state(null);
 
+	async function readHiveFile(path: string) {
+		windowsLoading = true;
+		windowsError = null;
+		try {
+			const response = await rpc.windows.parse_windows_hive(path);
+			if (response.type === 'Error') {
+				windowsError = response.data;
+				return;
+			}
+			windowsState.state.lastWindowsHiveFile = response.data.source_path;
+			btStore.state.windows = response.data;
+		} catch (e) {
+			windowsError = e instanceof Error ? e.message : String(e);
+		} finally {
+			windowsLoading = false;
+		}
+	}
+
+	async function onSelectWindowsDir() {
+		const windowsPath = await open({
+			multiple: false,
+			directory: true,
+			title: 'Select the Windows directory',
+			defaultPath: windowsState.state.lastWindowsDirectory || undefined
+		});
+		if (!windowsPath) return;
+		windowsState.state.lastWindowsDirectory = windowsPath;
+		readHiveFile(windowsPath);
+	}
+
+	async function onSelectWindowsHive() {
+		const file = await open({
+			multiple: false,
+			directory: false,
+			title: 'Select the Windows SYSTEM hive file',
+			defaultPath: windowsState.state.lastWindowsHiveFile || undefined
+		});
+		if (!file) return;
+		windowsState.state.lastWindowsHiveFile = file;
+		readHiveFile(file);
+	}
+
+	async function onGrantLinuxAccess() {
+		linuxLoading = true;
+		linuxError = null;
+		try {
+			const response = await rpc.linux.parse_local_config();
+			if (response.type === 'Error') {
+				linuxError = response.data;
+				return;
+			}
+			btStore.state.linux = response.data;
+		} catch (e) {
+			linuxError = e instanceof Error ? e.message : String(e);
+		} finally {
+			linuxLoading = false;
+		}
+	}
+
+	function onContinueToSync() {
+		goto('/sync');
+	}
+
+	function onClearWindows() {
+		btStore.state.windows = null;
+		windowsError = null;
+	}
+
+	function onClearLinux() {
+		btStore.state.linux = null;
+		linuxError = null;
+	}
 </script>
 
-<main class="flex flex-col justify-center p-4 max-w-3xl w-full mx-auto gap-4">
-	<h1 class="scroll-m-20 my-10 text-4xl font-extrabold tracking-tight lg:text-5xl">
-		Let's get connected!
-	</h1>
-
-
-	<ConfigWindows />
-	<ConfigLinux />
-	<Card.Root class="w-full relative">
-		<div
-			class="absolute -top-2 z-10 -left-2 border-1 border-accent-foreground rounded-full p-1 bg-accent font-bold px-2 w-8 h-8 flex justify-center items-center"
-		>
-			3
-		</div>
-		<Card.Header>
-			<Card.Title class="flex flex-row gap-2 justify-between items-center">
-				<span>
-					Start syncing your bluetooth devices
-				</span>
-
-				{#if btStore.state.windows && btStore.state.linux}
-					<Button href="/sync">Continue</Button>
-				{:else}
-					<Button variant="outline" disabled>Continue</Button>
-				{/if}
-			</Card.Title>
-		</Card.Header>
-	</Card.Root>
-</main>
+<SetupWizard
+	windowsData={btStore.state.windows}
+	linuxData={btStore.state.linux}
+	lastWindowsPath={windowsState.state.lastWindowsHiveFile || windowsState.state.lastWindowsDirectory}
+	{onSelectWindowsDir}
+	{onSelectWindowsHive}
+	{onGrantLinuxAccess}
+	{onContinueToSync}
+	{onClearWindows}
+	{onClearLinux}
+	{windowsLoading}
+	{linuxLoading}
+	{windowsError}
+	{linuxError}
+/>

@@ -18,9 +18,7 @@ pub fn scan_filesystem() -> Result<Vec<BluetoothController>, Box<dyn std::error:
             if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
                 eprintln!("Found controller: {}", name);
                 // Attempt to scan controller files
-                let controller = scan_controller_files(&path, name);
-
-                match controller {
+                match scan_controller_files(&path, name) {
                     Ok(controller) => {
                         controllers.push(controller);
                     }
@@ -66,13 +64,15 @@ fn scan_controller_files(
         // Device file will be `./info`
         let info_file = path.join("info");
         if info_file.exists() {
-            if let Ok(device) = extract_device_details(&info_file, device_address) {
-                devices.push(device);
-            } else {
-                eprintln!(
-                    "Failed to extract device details from {}",
-                    info_file.display()
-                );
+            match extract_device_details(&info_file, device_address) {
+                Ok(device) => devices.push(device),
+                Err(e) => {
+                    eprintln!(
+                        "Failed to extract device details from {}: {}",
+                        info_file.display(),
+                        e
+                    );
+                }
             }
         } else {
             eprintln!("No .info file found for device in {}", path.display());

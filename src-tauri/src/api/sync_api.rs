@@ -2,6 +2,7 @@ use bluetooth_model::{BluetoothDevice, HostDistributions};
 use serde::{Deserialize, Serialize};
 
 use crate::api::message::Message;
+use crate::sync;
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "action")]
@@ -11,6 +12,8 @@ pub enum SyncProposal {
         target_device: BluetoothDevice,
         source_os: HostDistributions,
         target_os: HostDistributions,
+        source_controller_address: String,
+        target_controller_address: String,
     },
     DeleteDevice {
         device: BluetoothDevice,
@@ -22,13 +25,14 @@ pub enum SyncProposal {
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct SyncRequest {
     pub proposals: Vec<SyncProposal>,
+    pub windows_hive_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct SyncResult {
     pub success: bool,
-    pub applied_count: usize,
-    pub failed_count: usize,
+    pub applied_count: u32,
+    pub failed_count: u32,
     pub errors: Vec<String>,
 }
 
@@ -43,107 +47,32 @@ pub struct SyncApiImpl;
 #[taurpc::resolvers]
 impl SyncApi for SyncApiImpl {
     async fn apply_sync_proposals(self, request: SyncRequest) -> Message<SyncResult> {
-        println!(
-            "Received sync request with {} proposals",
-            request.proposals.len()
-        );
+        let result = tokio::task::spawn_blocking(move || {
+            sync::apply_all_proposals(
+                &request.proposals,
+                request.windows_hive_path.as_deref(),
+            )
+        })
+        .await;
 
-        let mut applied_count = 0;
-        let mut failed_count = 0;
-        let mut errors = Vec::new();
-
-        for proposal in &request.proposals {
-            match apply_single_proposal(proposal).await {
-                Ok(_) => {
-                    applied_count += 1;
-                    match proposal {
-                        SyncProposal::CopyKeys {
-                            source_device,
-                            target_os,
-                            ..
-                        } => {
-                            println!(
-                                "Successfully copied keys for device: {} -> {:?}",
-                                source_device.address, target_os
-                            );
-                        }
-                        SyncProposal::DeleteDevice { device, os, .. } => {
-                            println!(
-                                "Successfully deleted device: {} from {:?}",
-                                device.address, os
-                            );
-                        }
-                    }
-                }
-                Err(e) => {
-                    failed_count += 1;
-                    let device_addr = match proposal {
-                        SyncProposal::CopyKeys { source_device, .. } => {
-                            &source_device.address
-                        }
-                        SyncProposal::DeleteDevice { device, .. } => &device.address,
-                    };
-                    let error_msg = format!("Failed for device {}: {}", device_addr, e);
-                    errors.push(error_msg.clone());
-                    println!("{}", error_msg);
+        match result {
+            Ok((applied_count, failed_count, errors)) => {
+                if applied_count == 0 && failed_count > 0 {
+                    Message::Error(format!(
+                        "All {} operations failed: {}",
+                        failed_count,
+                        errors.join("; ")
+                    ))
+                } else {
+                    Message::Success(SyncResult {
+                        success: failed_count == 0,
+                        applied_count,
+                        failed_count,
+                        errors,
+                    })
                 }
             }
-        }
-
-        let result = SyncResult {
-            success: failed_count == 0,
-            applied_count,
-            failed_count,
-            errors,
-        };
-
-        Message::Success(result)
-    }
-}
-
-async fn apply_single_proposal(proposal: &SyncProposal) -> Result<(), String> {
-    match proposal {
-        SyncProposal::CopyKeys {
-            source_device,
-            target_device,
-            source_os,
-            target_os,
-        } => {
-            // TODO: Implement actual key copy logic
-            println!(
-                "Copying keys: {} ({:?}) -> {} ({:?})",
-                source_device.name.as_deref().unwrap_or("Unknown"),
-                source_os,
-                target_device.name.as_deref().unwrap_or("Unknown"),
-                target_os
-            );
-
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-            if source_device.link_key.is_none() && source_device.le_data.is_none() {
-                return Err("No pairing keys found on source device".to_string());
-            }
-
-            Ok(())
-        }
-        SyncProposal::DeleteDevice {
-            device,
-            os,
-            controller_address,
-        } => {
-            // TODO: Implement actual device deletion logic
-            // Linux: remove /var/lib/bluetooth/<controller>/<device>/
-            // Windows: remove registry keys under BTHPORT\Parameters\Keys\<controller>\<device>
-            println!(
-                "Deleting device: {} ({:?}) from controller {}",
-                device.name.as_deref().unwrap_or("Unknown"),
-                os,
-                controller_address
-            );
-
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-            Ok(())
+            Err(e) => Message::Error(format!("Sync task failed: {}", e)),
         }
     }
 }

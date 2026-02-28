@@ -121,5 +121,159 @@
   button:not([disabled]), [role="button"]:not([disabled]) {
     cursor: pointer;
   }
+}
 
+/* ── Shared keyframes ── */
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Page wrapper with gradient mesh background ── */
+
+.gf-root {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.gradient-mesh {
+  position: absolute;
+  top: -200px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  height: 500px;
+  background:
+    radial-gradient(ellipse at 30% 50%, rgba(124, 58, 237, 0.14) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 50%, rgba(59, 130, 246, 0.10) 0%, transparent 60%);
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+.gf-content {
+  position: relative;
+  z-index: 1;
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 6rem;
+}
+
+/* ── Back navigation button ── */
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: rgba(250, 250, 250, 0.5);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-btn:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(250, 250, 250, 0.8);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ── Glass-morphism button system ── */
+
+.gf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  background: rgba(167, 139, 250, 0.1);
+  color: #c4b5fd;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gf-btn:hover {
+  background: rgba(167, 139, 250, 0.2);
+  border-color: rgba(167, 139, 250, 0.5);
+}
+
+.gf-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.gf-btn.ghost {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(250, 250, 250, 0.5);
+}
+
+.gf-btn.ghost:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(250, 250, 250, 0.7);
+}
+
+.gf-btn.small {
+  padding: 4px 12px;
+  font-size: 12px;
+}
+
+.gf-btn.primary {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.3), rgba(59, 130, 246, 0.3));
+  border-color: rgba(124, 58, 237, 0.4);
+  color: #e0d4ff;
+}
+
+.gf-btn.primary:hover {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.45), rgba(59, 130, 246, 0.45));
+  border-color: rgba(124, 58, 237, 0.6);
+}
+
+.gf-btn.destructive {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.gf-btn.destructive:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* ── Glass dialog theme ── */
+
+[data-slot="dialog-content"].glass-dialog {
+  background: rgba(9, 9, 11, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  border-radius: 12px;
+  max-width: 42rem;
+  color: #fafafa;
+}
+
+[data-slot="dialog-title"].glass-dialog-title {
+  color: #fafafa;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+[data-slot="dialog-description"].glass-dialog-desc {
+  color: rgba(250, 250, 250, 0.45);
+  font-size: 14px;
+}
+
+[data-slot="dialog-footer"].glass-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 16px;
 }

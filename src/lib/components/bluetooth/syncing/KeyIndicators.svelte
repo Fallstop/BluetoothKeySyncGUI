@@ -4,30 +4,52 @@
 
 	let {
 		device,
-		class: className = ''
+		align = 'left'
 	}: {
 		device: BluetoothDevice;
-		class?: string;
+		align?: 'left' | 'right';
 	} = $props();
 </script>
 
-<div class="flex items-center gap-2 text-xs text-muted-foreground {className}">
+<div class="indicators" class:align-right={align === 'right'}>
 	{#if device.link_key}
-		<span class="text-green-600 dark:text-green-400">
+		<span class="key-present">
 			<Check class="inline h-3 w-3" /> Link
 		</span>
 	{:else}
-		<span class="text-muted-foreground/50">
+		<span class="key-absent">
 			<X class="inline h-3 w-3" /> Link
 		</span>
 	{/if}
 	{#if device.le_data}
-		<span class="text-green-600 dark:text-green-400">
+		<span class="key-present">
 			<Check class="inline h-3 w-3" /> LE
 		</span>
 	{:else}
-		<span class="text-muted-foreground/50">
+		<span class="key-absent">
 			<X class="inline h-3 w-3" /> LE
 		</span>
 	{/if}
 </div>
+
+<style>
+	.indicators {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 12px;
+		color: rgba(250, 250, 250, 0.35);
+	}
+
+	.indicators.align-right {
+		justify-content: flex-end;
+	}
+
+	.key-present {
+		color: #4ade80;
+	}
+
+	.key-absent {
+		color: rgba(250, 250, 250, 0.2);
+	}
+</style>

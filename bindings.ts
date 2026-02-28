@@ -16,18 +16,25 @@ export type BluetoothLinkKey = { key: string; key_type: number | null; pin_lengt
 
 export type BluetoothLowEnergyKey = { long_term_key: LongTermKeyData | null; peripheral_long_term_key: LongTermKeyData | null; identity_resolving_key: string | null; local_signature_key: SignatureKeyData | null; remote_signature_key: SignatureKeyData | null; address_type: string | null }
 
-export type LongTermKeyData = { key: string; authenticated: number | null; key_length: number | null; ediv: string | null; rand: string | null }
-
-export type SignatureKeyData = { key: string; counter: number | null; authenticated: number | null }
-
 export type DeviceID = { source: number | null; vendor: number | null; product: number | null; version: number | null }
 
 export type HostDistributions = "Windows" | "Linux"
 
+export type LongTermKeyData = { key: string; authenticated: boolean | null; key_length: number | null; ediv?: number | null; rand: string | null }
+
 export type Message<T> = { type: "Success"; data: T } | { type: "Error"; data: string }
 
-const ARGS_MAP = { 'linux':'{"parse_local_config":[]}', 'windows':'{"parse_windows_hive":["path_str"]}' }
+export type SignatureKeyData = { key: string; counter: number | null; authenticated: boolean | null }
+
+export type SyncProposal = { action: "CopyKeys"; source_device: BluetoothDevice; target_device: BluetoothDevice; source_os: HostDistributions; target_os: HostDistributions; source_controller_address: string; target_controller_address: string } | { action: "DeleteDevice"; device: BluetoothDevice; os: HostDistributions; controller_address: string }
+
+export type SyncRequest = { proposals: SyncProposal[]; windows_hive_path: string | null }
+
+export type SyncResult = { success: boolean; applied_count: number; failed_count: number; errors: string[] }
+
+const ARGS_MAP = { 'linux':'{"parse_local_config":[]}', 'sync':'{"apply_sync_proposals":["request"]}', 'windows':'{"parse_windows_hive":["path_str"]}' }
 export type Router = { "linux": {parse_local_config: () => Promise<Message<BluetoothData>>},
+"sync": {apply_sync_proposals: (request: SyncRequest) => Promise<Message<SyncResult>>},
 "windows": {parse_windows_hive: (pathStr: string) => Promise<Message<BluetoothData>>} };
 
 

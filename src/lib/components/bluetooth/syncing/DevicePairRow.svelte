@@ -6,7 +6,7 @@
 		KeyFieldComparison
 	} from './matching';
 	import { describeSyncChanges } from './matching';
-	import { Check, X, AlertTriangle, Minus, ArrowRight } from 'lucide-svelte';
+	import { Check, X, AlertTriangle, Minus, EyeOff } from 'lucide-svelte';
 	import { osColor } from './os-theme';
 	import PairSideMiniCard from './PairSideMiniCard.svelte';
 
@@ -88,53 +88,47 @@
 		dragHoverSide = null;
 	}
 
-	let winDragClass = $derived(
-		draggingFromSide === 'win'
-			? `ring-2 ${osColor('Windows').ringActive}`
-			: dragHoverSide === 'win' && draggingFromSide === 'lin'
-				? `ring-2 ${osColor('Windows').ringHover}`
-				: ''
-	);
-
-	let linDragClass = $derived(
-		draggingFromSide === 'lin'
-			? `ring-2 ${osColor('Linux').ringActive}`
-			: dragHoverSide === 'lin' && draggingFromSide === 'win'
-				? `ring-2 ${osColor('Linux').ringHover}`
-				: ''
-	);
+	let winIsDragSource = $derived(draggingFromSide === 'win');
+	let winIsDragTarget = $derived(dragHoverSide === 'win' && draggingFromSide === 'lin');
+	let linIsDragSource = $derived(draggingFromSide === 'lin');
+	let linIsDragTarget = $derived(dragHoverSide === 'lin' && draggingFromSide === 'win');
 
 	// --- Helpers ---
 	function statusIcon(status: KeyFieldComparison['status']) {
 		switch (status) {
 			case 'match':
-				return { icon: Check, class: 'text-green-500' };
+				return { icon: Check, color: '#22c55e' };
 			case 'mismatch':
-				return { icon: X, class: 'text-red-500' };
+				return { icon: X, color: '#ef4444' };
 			case 'source_only':
 			case 'target_only':
-				return { icon: AlertTriangle, class: 'text-amber-500' };
+				return { icon: AlertTriangle, color: '#f59e0b' };
+			case 'os_not_available':
+				return { icon: Minus, color: 'rgba(250,250,250,0.2)' };
 			case 'both_missing':
-				return { icon: Minus, class: 'text-muted-foreground' };
+				return { icon: Minus, color: 'rgba(250,250,250,0.3)' };
 		}
 	}
 
-	function truncateKey(value: string | null): string {
-		if (!value) return '--';
+	function truncateKey(value: string | null, status?: KeyFieldComparison['status']): string {
+		if (!value) {
+			return status === 'os_not_available' ? 'N/A' : '--';
+		}
 		if (value.length <= 16) return value;
 		return value.slice(0, 8) + '...' + value.slice(-8);
 	}
 </script>
 
-<div class="rounded-lg border bg-card text-card-foreground" bind:this={rowEl}>
+<div class="pair-row" bind:this={rowEl}>
 	<!-- Main row: Win card — direction — Lin card -->
-	<div class="p-3 flex items-center gap-3">
+	<div class="row-main">
 		<!-- Windows device mini-card -->
 		<PairSideMiniCard
 			device={pair.windowsDevice}
 			os="Windows"
 			side="left"
-			dragClass={winDragClass}
+			isDragSource={winIsDragSource}
+			isDragTarget={winIsDragTarget}
 			{canDrag}
 			onpointerdown={(e) => handleSidePointerDown('win', e)}
 			onpointermove={handleSidePointerMove}
@@ -142,39 +136,61 @@
 			onpointercancel={handleSidePointerCancel}
 		/>
 
-		<!-- Center: Direction picker or synced indicator -->
-		<div class="flex flex-col items-center gap-1 shrink-0">
+		<!-- Center: Direction toggle or synced indicator -->
+		<div class="direction-center">
 			{#if isSynced}
-				<div
-					class="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium"
-				>
+				<div class="dir-toggle dir-synced" title="Keys are already in sync">
 					<Check class="h-4 w-4" />
-					<span>synced</span>
 				</div>
+				<span class="dir-label dir-label-synced">synced</span>
 			{:else if !readonly}
-				<div class="inline-flex rounded-md border border-input text-xs">
-					<button
-						class="px-2 py-1.5 rounded-l-md transition-colors {direction === 'win_to_linux'
-							? 'bg-primary text-primary-foreground'
-							: 'hover:bg-muted text-muted-foreground'}"
-						onclick={() => ondirectionchange?.('win_to_linux')}
-						title="Copy Windows keys to Linux"
-					>
-						<ArrowRight class="h-3 w-3" />
-					</button>
-					<button
-						class="px-2 py-1.5 rounded-r-md transition-colors {direction === 'linux_to_win'
-							? 'bg-primary text-primary-foreground'
-							: 'hover:bg-muted text-muted-foreground'}"
-						onclick={() => ondirectionchange?.('linux_to_win')}
-						title="Copy Linux keys to Windows"
-					>
-						<ArrowRight class="h-3 w-3 rotate-180" />
-					</button>
-				</div>
-				{#if direction === null}
-					<span class="text-[10px] text-muted-foreground/60">pick direction</span>
-				{/if}
+				<button
+					class="dir-toggle"
+					class:dir-active={direction !== null}
+					onclick={() => {
+						if (direction === null || direction === 'linux_to_win') {
+							ondirectionchange?.('win_to_linux');
+						} else {
+							ondirectionchange?.('linux_to_win');
+						}
+					}}
+					title={direction === 'win_to_linux'
+						? 'Copying Windows → Linux (click to reverse)'
+						: direction === 'linux_to_win'
+							? 'Copying Linux → Windows (click to reverse)'
+							: 'Click to set sync direction'}
+				>
+					{#if direction === null}
+						<!-- Swap icon (no direction chosen) -->
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+							<path d="M8 3L4 7l4 4" />
+							<path d="M4 7h16" />
+							<path d="M16 21l4-4-4-4" />
+							<path d="M20 17H4" />
+						</svg>
+					{:else if direction === 'win_to_linux'}
+						<!-- Right arrow (Win → Lin) -->
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M5 12h14" />
+							<path d="M13 6l6 6-6 6" />
+						</svg>
+					{:else}
+						<!-- Left arrow (Lin → Win) -->
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M19 12H5" />
+							<path d="M11 18l-6-6 6-6" />
+						</svg>
+					{/if}
+				</button>
+				<span class="dir-label" class:dir-label-active={direction !== null}>
+					{#if direction === 'win_to_linux'}
+						W → L
+					{:else if direction === 'linux_to_win'}
+						L → W
+					{:else}
+						sync
+					{/if}
+				</span>
 			{/if}
 		</div>
 
@@ -183,7 +199,8 @@
 			device={pair.linuxDevice}
 			os="Linux"
 			side="right"
-			dragClass={linDragClass}
+			isDragSource={linIsDragSource}
+			isDragTarget={linIsDragTarget}
 			{canDrag}
 			onpointerdown={(e) => handleSidePointerDown('lin', e)}
 			onpointermove={handleSidePointerMove}
@@ -191,56 +208,58 @@
 			onpointercancel={handleSidePointerCancel}
 		/>
 
-		<!-- Unmatch button -->
-		{#if onunlink}
-			<button
-				class="shrink-0 p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
-				onclick={() => onunlink?.()}
-				title="Unmatch these devices"
-			>
-				<X class="h-4 w-4" />
-			</button>
-		{/if}
-	</div>
+		</div>
 
 	<!-- Bottom bar: sync info + details toggle -->
-	<div class="px-3 pb-2 flex items-center justify-between">
-		<div class="flex items-center gap-2">
+	<div class="row-footer">
+		<div class="footer-info">
 			{#if direction && syncChanges.length > 0 && !isSynced}
-				<span class="text-xs text-muted-foreground">
+				<span class="keys-to-copy">
 					{syncChanges.length} key{syncChanges.length !== 1 ? 's' : ''} to copy
 				</span>
 			{/if}
 		</div>
-		<button
-			class="text-xs text-muted-foreground hover:text-foreground transition-colors"
-			onclick={() => (expanded = !expanded)}
-		>
-			{expanded ? 'Hide' : 'Show'} details
-		</button>
+		<div class="footer-actions">
+			{#if onunlink}
+				<button
+					class="unlink-btn"
+					onclick={() => onunlink?.()}
+					title="Unmatch these devices"
+				>
+					<X class="h-3 w-3" />
+					Unmatch
+				</button>
+			{/if}
+			<button
+				class="details-toggle"
+				onclick={() => (expanded = !expanded)}
+			>
+				{expanded ? 'Hide' : 'Show'} details
+			</button>
+		</div>
 	</div>
 
 	<!-- Expanded key comparison table -->
 	{#if expanded}
-		<div class="border-t px-3 py-2">
-			<table class="w-full text-xs">
+		<div class="details-panel">
+			<table class="key-table">
 				<thead>
-					<tr class="text-muted-foreground">
-						<th class="text-left font-medium pb-1 w-1/4">Field</th>
-						<th class="text-left font-medium pb-1">Windows</th>
-						<th class="text-left font-medium pb-1">Linux</th>
-						<th class="text-center font-medium pb-1 w-12">Status</th>
+					<tr>
+						<th class="col-field">Field</th>
+						<th class="col-value">Windows</th>
+						<th class="col-value">Linux</th>
+						<th class="col-status">Status</th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each [...pair.comparison.linkKey, ...pair.comparison.leData].filter((f) => f.status !== 'both_missing') as field}
 						{@const si = statusIcon(field.status)}
-						<tr class="border-t border-border/50">
-							<td class="py-1 text-muted-foreground">{field.label}</td>
-							<td class="py-1 font-mono break-all">{truncateKey(field.windowsValue)}</td>
-							<td class="py-1 font-mono break-all">{truncateKey(field.linuxValue)}</td>
-							<td class="py-1 text-center">
-								<si.icon class="inline h-3.5 w-3.5 {si.class}" />
+						<tr class:row-na={field.status === 'os_not_available'}>
+							<td class="cell-field">{field.label}</td>
+							<td class="cell-value">{truncateKey(field.windowsValue, field.status)}</td>
+							<td class="cell-value">{truncateKey(field.linuxValue, field.status)}</td>
+							<td class="cell-status">
+								<si.icon class="inline h-3.5 w-3.5" style="color: {si.color}" />
 							</td>
 						</tr>
 					{/each}
@@ -249,3 +268,192 @@
 		</div>
 	{/if}
 </div>
+
+<style>
+	.pair-row {
+		border-radius: 10px;
+		border: 1px solid rgba(255, 255, 255, 0.06);
+		background: rgba(255, 255, 255, 0.02);
+	}
+
+	.row-main {
+		padding: 12px;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	/* Direction picker */
+	.direction-center {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+		flex-shrink: 0;
+	}
+
+	.dir-toggle {
+		width: 36px;
+		height: 36px;
+		border-radius: 50%;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: rgba(255, 255, 255, 0.03);
+		color: rgba(250, 250, 250, 0.3);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		transition: all 0.2s;
+		font-family: inherit;
+		padding: 0;
+	}
+
+	.dir-toggle:hover {
+		border-color: rgba(255, 255, 255, 0.2);
+		background: rgba(255, 255, 255, 0.06);
+		color: rgba(250, 250, 250, 0.6);
+	}
+
+	.dir-toggle.dir-active {
+		border-color: rgba(124, 58, 237, 0.4);
+		background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(59, 130, 246, 0.2));
+		color: #e0d4ff;
+	}
+
+	.dir-toggle.dir-active:hover {
+		border-color: rgba(124, 58, 237, 0.6);
+		background: linear-gradient(135deg, rgba(124, 58, 237, 0.3), rgba(59, 130, 246, 0.3));
+	}
+
+	.dir-toggle.dir-synced {
+		border-color: rgba(34, 197, 94, 0.3);
+		background: rgba(34, 197, 94, 0.1);
+		color: #4ade80;
+		cursor: default;
+	}
+
+	.dir-label.dir-label-synced {
+		color: rgba(74, 222, 128, 0.6);
+	}
+
+	.dir-label {
+		font-size: 10px;
+		font-weight: 500;
+		color: rgba(250, 250, 250, 0.25);
+		letter-spacing: 0.02em;
+	}
+
+	.dir-label.dir-label-active {
+		color: rgba(224, 212, 255, 0.6);
+	}
+
+	/* Footer */
+	.row-footer {
+		padding: 0 12px 8px;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.footer-actions {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.unlink-btn {
+		font-size: 12px;
+		color: rgba(250, 250, 250, 0);
+		border: none;
+		background: none;
+		cursor: pointer;
+		padding: 0;
+		font-family: inherit;
+		transition: color 0.2s;
+		display: flex;
+		align-items: center;
+		gap: 3px;
+	}
+
+	.pair-row:hover .unlink-btn {
+		color: rgba(250, 250, 250, 0.25);
+	}
+
+	.pair-row:hover .unlink-btn:hover {
+		color: #ef4444;
+	}
+
+	.keys-to-copy {
+		font-size: 12px;
+		color: rgba(250, 250, 250, 0.35);
+	}
+
+	.details-toggle {
+		font-size: 12px;
+		color: rgba(250, 250, 250, 0.35);
+		border: none;
+		background: none;
+		cursor: pointer;
+		padding: 0;
+		font-family: inherit;
+		transition: color 0.2s;
+	}
+
+	.details-toggle:hover {
+		color: rgba(250, 250, 250, 0.7);
+	}
+
+	/* Details panel */
+	.details-panel {
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		padding: 8px 12px;
+	}
+
+	.key-table {
+		width: 100%;
+		font-size: 12px;
+		border-collapse: collapse;
+	}
+
+	.key-table th {
+		text-align: left;
+		font-weight: 500;
+		padding-bottom: 4px;
+		color: rgba(250, 250, 250, 0.35);
+	}
+
+	.col-field {
+		width: 25%;
+	}
+
+	.col-status {
+		width: 48px;
+		text-align: center !important;
+	}
+
+	.key-table tbody tr {
+		border-top: 1px solid rgba(255, 255, 255, 0.04);
+	}
+
+	.cell-field {
+		padding: 4px 0;
+		color: rgba(250, 250, 250, 0.4);
+	}
+
+	.cell-value {
+		padding: 4px 0;
+		font-family: ui-monospace, monospace;
+		word-break: break-all;
+		color: rgba(250, 250, 250, 0.7);
+	}
+
+	.cell-status {
+		padding: 4px 0;
+		text-align: center;
+	}
+
+	.row-na {
+		opacity: 0.45;
+	}
+
+</style>

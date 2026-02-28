@@ -1,6 +1,6 @@
 mod linux_api;
-mod message;
-mod sync_api;
+pub mod message;
+pub mod sync_api;
 mod windows_api;
 
 use crate::api::{linux_api::LinuxApi, sync_api::SyncApi, windows_api::WindowsApi};

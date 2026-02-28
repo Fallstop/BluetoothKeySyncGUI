@@ -32,6 +32,15 @@
 		class="fixed inset-0 pointer-events-none"
 		style="width: 100vw; height: 100vh; z-index: 50;"
 	>
+		<defs>
+			<filter id="drag-glow" x="-50%" y="-50%" width="200%" height="200%">
+				<feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+				<feMerge>
+					<feMergeNode in="blur" />
+					<feMergeNode in="SourceGraphic" />
+				</feMerge>
+			</filter>
+		</defs>
 		{#if dragHoverDevice}
 			{@const targetCenter = getCardCenter(dragHoverDevice)}
 			<line
@@ -42,6 +51,7 @@
 				stroke={lineColor}
 				stroke-width="2.5"
 				opacity="0.9"
+				filter="url(#drag-glow)"
 			/>
 			<circle
 				cx={targetCenter.x}
@@ -49,6 +59,7 @@
 				r="4"
 				fill={lineColor}
 				opacity="0.9"
+				filter="url(#drag-glow)"
 			/>
 		{:else}
 			<line
@@ -69,6 +80,7 @@
 			r="4"
 			fill={lineColor}
 			opacity="0.9"
+			filter="url(#drag-glow)"
 		/>
 	</svg>
 {/if}

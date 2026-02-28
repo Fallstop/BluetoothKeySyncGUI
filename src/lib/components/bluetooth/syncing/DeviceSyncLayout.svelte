@@ -100,9 +100,10 @@
 	});
 
 	let hasManualPairs = $derived(manualMatches.length > 0);
+	let hasNeedsSync = $derived(matchResult.needsSync.length > 0);
 	let hasUnpaired = $derived(unpairedDevices.length > 0);
 	let hasSynced = $derived(matchResult.alreadySynced.length > 0);
-	let hasMatchedSection = $derived(hasSynced || hasManualPairs);
+	let hasMatchedSection = $derived(hasSynced || hasNeedsSync || hasManualPairs);
 
 	// Cursor management during drag
 	$effect(() => {
@@ -249,14 +250,29 @@
 	onpointerup={handleWindowPointerUp}
 />
 
-<div class="space-y-4">
-	<!-- Matched Devices: synced pairs (readonly) + manual matches (editable) -->
+<div class="sync-sections">
+	<!-- Matched Devices -->
 	{#if hasMatchedSection}
-		<div>
-			<h3 class="text-sm font-medium text-muted-foreground mb-2">Matched Devices</h3>
-			<div class="space-y-2">
+		<div class="section-panel">
+			<h3 class="section-title">Matched Devices</h3>
+			<div class="matched-col-headers">
+				<span class="matched-col-header" style="color: {osColor('Windows').textColor}">Windows</span>
+				<span class="matched-col-header" style="color: {osColor('Linux').textColor}">Linux</span>
+			</div>
+			<div class="section-list">
 				{#each matchResult.alreadySynced as pair (pairKey(pair.controllerAddress, pair.windowsDevice.address))}
-					<DevicePairRow {pair} readonly />
+					{@const key = pairKey(pair.controllerAddress, pair.windowsDevice.address)}
+					<DevicePairRow {pair} readonly onunlink={() => onautounlink?.(key)} />
+				{/each}
+				{#each matchResult.needsSync as pair (pairKey(pair.controllerAddress, pair.windowsDevice.address))}
+					{@const key = pairKey(pair.controllerAddress, pair.windowsDevice.address)}
+					{@const sel = selections.get(key)}
+					<DevicePairRow
+						{pair}
+						direction={sel?.direction ?? null}
+						ondirectionchange={(d) => updateDirection(key, d)}
+						onunlink={() => onautounlink?.(key)}
+					/>
 				{/each}
 				{#each manualMatches as match (match.id)}
 					{@const key = manualPairKey(match.id)}
@@ -273,21 +289,21 @@
 		</div>
 	{/if}
 
-	<!-- Unpaired Devices (two-column grid) -->
+	<!-- Unpaired Devices -->
 	{#if hasUnpaired}
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div onclick={handleContainerClick}>
-			<h3 class="text-sm font-medium text-muted-foreground mb-1">Devices</h3>
-			<p class="text-xs text-muted-foreground mb-3">
+		<div class="section-panel" onclick={handleContainerClick}>
+			<h3 class="section-title">Devices</h3>
+			<p class="section-desc">
 				Click or drag a device to one on the other side to pair them.
 			</p>
-			<div class="grid grid-cols-2 gap-x-3 gap-y-2">
+			<div class="device-grid">
 				<!-- Column headers -->
-				<div class="text-xs font-medium {osColor('Windows').text}">
+				<div class="col-header" style="color: {osColor('Windows').textColor}">
 					Windows
 				</div>
-				<div class="text-xs font-medium {osColor('Linux').text}">
+				<div class="col-header" style="color: {osColor('Linux').textColor}">
 					Linux
 				</div>
 
@@ -340,10 +356,78 @@
 
 	<!-- Empty state -->
 	{#if !hasMatchedSection && !hasUnpaired}
-		<div class="text-center py-12 text-muted-foreground">
-			<p class="text-sm">
+		<div class="empty-state">
+			<p>
 				No devices found. Load both Windows and Linux Bluetooth data first.
 			</p>
 		</div>
 	{/if}
 </div>
+
+<style>
+	.sync-sections {
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+	}
+
+	.section-panel {
+		border: 1px solid rgba(255, 255, 255, 0.06);
+		border-radius: 12px;
+		background: rgba(255, 255, 255, 0.015);
+		padding: 16px;
+	}
+
+	.section-title {
+		font-size: 13px;
+		font-weight: 500;
+		color: rgba(250, 250, 250, 0.45);
+		margin: 0 0 12px;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+
+	.section-desc {
+		font-size: 13px;
+		color: rgba(250, 250, 250, 0.35);
+		margin: -4px 0 12px;
+	}
+
+	.matched-col-headers {
+		display: flex;
+		justify-content: space-between;
+		padding: 0 12px 6px;
+	}
+
+	.matched-col-header {
+		font-size: 12px;
+		font-weight: 600;
+		letter-spacing: 0.02em;
+	}
+
+	.section-list {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.device-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 8px 12px;
+	}
+
+	.col-header {
+		font-size: 12px;
+		font-weight: 600;
+		letter-spacing: 0.02em;
+		padding-bottom: 2px;
+	}
+
+	.empty-state {
+		text-align: center;
+		padding: 48px 0;
+		color: rgba(250, 250, 250, 0.35);
+		font-size: 14px;
+	}
+</style>

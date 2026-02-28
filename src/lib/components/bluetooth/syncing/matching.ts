@@ -18,6 +18,8 @@ export type SyncProposal =
 			target_device: BluetoothDevice;
 			source_os: HostDistributions;
 			target_os: HostDistributions;
+			source_controller_address: string;
+			target_controller_address: string;
 	  }
 	| {
 			action: 'DeleteDevice';
@@ -28,6 +30,7 @@ export type SyncProposal =
 
 export type SyncRequest = {
 	proposals: SyncProposal[];
+	windows_hive_path: string | null;
 };
 
 export type SyncResult = {
@@ -41,7 +44,7 @@ export type SyncResult = {
 
 export type SyncDirection = 'win_to_linux' | 'linux_to_win';
 
-export type KeyFieldStatus = 'match' | 'mismatch' | 'source_only' | 'target_only' | 'both_missing';
+export type KeyFieldStatus = 'match' | 'mismatch' | 'source_only' | 'target_only' | 'both_missing' | 'os_not_available';
 
 export interface KeyFieldComparison {
 	field: string;
@@ -131,11 +134,27 @@ export function compareLinkKeys(
 	windowsKey: BluetoothLinkKey | null,
 	linuxKey: BluetoothLinkKey | null
 ): KeyFieldComparison[] {
-	return [
+	const fields = [
 		compareField('key', 'Link Key', windowsKey?.key, linuxKey?.key),
 		compareField('key_type', 'Key Type', windowsKey?.key_type, linuxKey?.key_type),
 		compareField('pin_length', 'PIN Length', windowsKey?.pin_length, linuxKey?.pin_length)
 	];
+
+	// Windows doesn't store key_type or pin_length for classic BT link keys.
+	// When the key itself exists on both sides but these metadata fields are
+	// only present on Linux, mark them as os_not_available rather than a warning.
+	if (windowsKey && linuxKey) {
+		for (const f of fields) {
+			if (
+				(f.field === 'key_type' || f.field === 'pin_length') &&
+				(f.status === 'source_only' || f.status === 'target_only')
+			) {
+				f.status = 'os_not_available';
+			}
+		}
+	}
+
+	return fields;
 }
 
 function compareLtkGroup(
@@ -209,8 +228,8 @@ export function compareKeys(windowsDevice: BluetoothDevice, linuxDevice: Bluetoo
 	const leData = compareLeData(windowsDevice.le_data, linuxDevice.le_data);
 
 	const allFields = [...linkKey, ...leData];
-	const hasAnyKey = allFields.some((f) => f.status !== 'both_missing');
-	const allMatch = allFields.every((f) => f.status === 'match' || f.status === 'both_missing');
+	const hasAnyKey = allFields.some((f) => f.status !== 'both_missing' && f.status !== 'os_not_available');
+	const allMatch = allFields.every((f) => f.status === 'match' || f.status === 'both_missing' || f.status === 'os_not_available');
 
 	let overallStatus: KeyComparison['overallStatus'];
 	if (!hasAnyKey) {
@@ -353,17 +372,20 @@ export function pairKey(controllerAddress: string, deviceAddress: string): strin
 	return `${controllerAddress}/${deviceAddress}`;
 }
 
-export function initSelections(_matchResult: MatchResult): SyncSelections {
-	// Selections are only created when users manually pair devices.
-	// No auto-selections — users pick exactly what they want to sync.
-	return new Map();
+export function initSelections(matchResult: MatchResult): SyncSelections {
+	const selections: SyncSelections = new Map();
+	// Pre-populate entries for auto-matched needsSync pairs so they appear in the UI
+	for (const pair of matchResult.needsSync) {
+		const key = pairKey(pair.controllerAddress, pair.windowsDevice.address);
+		selections.set(key, { direction: null });
+	}
+	return selections;
 }
 
 export function manualPairKey(id: string): string {
 	return `manual/${id}`;
 }
 
-let manualMatchCounter = 0;
 export function createManualMatch(
 	winDevice: BluetoothDevice,
 	linDevice: BluetoothDevice,
@@ -371,7 +393,7 @@ export function createManualMatch(
 	linCtrlAddr: string
 ): ManualMatch {
 	return {
-		id: `manual-${++manualMatchCounter}`,
+		id: crypto.randomUUID(),
 		windowsDevice: winDevice,
 		linuxDevice: linDevice,
 		windowsControllerAddr: winCtrlAddr,
@@ -393,12 +415,17 @@ export function buildSyncProposals(
 		if (!selection?.direction) continue;
 
 		const isWinToLin = selection.direction === 'win_to_linux';
+		// Auto-matched pairs share the same controller address
+		const winCtrlAddr = pair.controllerAddress;
+		const linCtrlAddr = pair.controllerAddress;
 		proposals.push({
 			action: 'CopyKeys',
 			source_device: isWinToLin ? pair.windowsDevice : pair.linuxDevice,
 			target_device: isWinToLin ? pair.linuxDevice : pair.windowsDevice,
 			source_os: isWinToLin ? 'Windows' : 'Linux',
-			target_os: isWinToLin ? 'Linux' : 'Windows'
+			target_os: isWinToLin ? 'Linux' : 'Windows',
+			source_controller_address: isWinToLin ? winCtrlAddr : linCtrlAddr,
+			target_controller_address: isWinToLin ? linCtrlAddr : winCtrlAddr
 		});
 	}
 
@@ -413,7 +440,13 @@ export function buildSyncProposals(
 			source_device: isWinToLin ? match.windowsDevice : match.linuxDevice,
 			target_device: isWinToLin ? match.linuxDevice : match.windowsDevice,
 			source_os: isWinToLin ? 'Windows' : 'Linux',
-			target_os: isWinToLin ? 'Linux' : 'Windows'
+			target_os: isWinToLin ? 'Linux' : 'Windows',
+			source_controller_address: isWinToLin
+				? match.windowsControllerAddr
+				: match.linuxControllerAddr,
+			target_controller_address: isWinToLin
+				? match.linuxControllerAddr
+				: match.windowsControllerAddr
 		});
 	}
 
@@ -456,7 +489,7 @@ export function describeSyncChanges(
 	const isWinToLin = direction === 'win_to_linux';
 
 	for (const field of allFields) {
-		if (field.status === 'match' || field.status === 'both_missing') continue;
+		if (field.status === 'match' || field.status === 'both_missing' || field.status === 'os_not_available') continue;
 
 		const sourceVal = isWinToLin ? field.windowsValue : field.linuxValue;
 		if (sourceVal != null) {

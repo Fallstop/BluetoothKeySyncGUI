@@ -3,6 +3,26 @@ use bluetooth_model::{BluetoothLowEnergyKey, LongTermKeyData, SignatureKeyData, 
 use ini::Ini;
 use mac_address::MacAddress;
 
+/// Parse a boolean from a BlueZ info file value.
+/// BlueZ uses different formats: "0"/"1" (for LTK Authenticated) and "true"/"false" (for CSRK).
+fn parse_bluez_bool(s: &str) -> Option<bool> {
+    match s.to_lowercase().as_str() {
+        "true" | "1" => Some(true),
+        "false" | "0" => Some(false),
+        _ => None,
+    }
+}
+
+/// Format a boolean for BlueZ info files.
+/// LTK sections use "0"/"1", CSRK sections use "true"/"false".
+fn format_bluez_bool_numeric(v: bool) -> String {
+    if v { "1".to_string() } else { "0".to_string() }
+}
+
+fn format_bluez_bool_text(v: bool) -> String {
+    if v { "true".to_string() } else { "false".to_string() }
+}
+
 #[derive(Debug, Clone)]
 pub struct DeviceInfo {
     ini: Ini,
@@ -24,7 +44,19 @@ impl DeviceInfo {
     }
 
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
-        self.ini.write_to_file(path)?;
+        let path = path.as_ref();
+        let tmp_path = path.with_extension("tmp");
+        self.ini.write_to_file(&tmp_path)?;
+
+        // Set restrictive permissions before rename
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&tmp_path, std::fs::Permissions::from_mode(0o600))?;
+        }
+
+        // Atomic rename
+        std::fs::rename(&tmp_path, path)?;
         Ok(())
     }
 
@@ -53,10 +85,13 @@ impl DeviceInfo {
     fn set_option_helper(&mut self, section_name: &str, key: &str, value: Option<String>) {
         if let Some(v) = value {
             self.ini.with_section(Some(section_name)).set(key, v);
-        } else {
-            if let Some(section) = self.ini.section_mut(Some(section_name)) {
-                section.remove(key);
-            }
+        }
+        // None = don't touch existing value (avoid destructive removal)
+    }
+
+    fn remove_field(&mut self, section_name: &str, key: &str) {
+        if let Some(section) = self.ini.section_mut(Some(section_name)) {
+            section.remove(key);
         }
     }
 
@@ -111,8 +146,22 @@ impl DeviceInfo {
     pub fn set_link_key(&mut self, link_key: Option<BluetoothLinkKey>) {
         if let Some(key) = link_key {
             self.ini.with_section(Some("LinkKey")).set("Key", &key.key);
-            self.set_option_helper("LinkKey", "Type", key.key_type.map(|v| v.to_string()));
-            self.set_option_helper("LinkKey", "PINLength", key.pin_length.map(|v| v.to_string()));
+            // Default key_type=4 (authenticated) and pin_length=0 if not provided,
+            // matching BlueVein behavior and BlueZ expectations.
+            let key_type = key.key_type.unwrap_or_else(|| {
+                self.ini.section(Some("LinkKey"))
+                    .and_then(|s| s.get("Type"))
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(4)
+            });
+            let pin_length = key.pin_length.unwrap_or_else(|| {
+                self.ini.section(Some("LinkKey"))
+                    .and_then(|s| s.get("PINLength"))
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0)
+            });
+            self.ini.with_section(Some("LinkKey")).set("Type", key_type.to_string());
+            self.ini.with_section(Some("LinkKey")).set("PINLength", pin_length.to_string());
         } else {
             self.ini.delete(Some("LinkKey"));
         }
@@ -171,7 +220,7 @@ impl DeviceInfo {
 
         Some(LongTermKeyData {
             key,
-            authenticated: section.get("Authenticated").and_then(|s| s.parse().ok()),
+            authenticated: section.get("Authenticated").and_then(|s| parse_bluez_bool(s)),
             key_length: section.get("EncSize").and_then(|s| s.parse().ok()),
             ediv: section.get("EDiv").and_then(|s| s.parse().ok()),
             rand: section.get("Rand").map(|s| s.to_string()),
@@ -181,7 +230,7 @@ impl DeviceInfo {
     fn set_long_term_key(&mut self, section_name: &str, ltk: Option<&LongTermKeyData>) {
         if let Some(key) = ltk {
             self.ini.with_section(Some(section_name)).set("Key", &key.key);
-            self.set_option_helper(section_name, "Authenticated", key.authenticated.map(|v| v.to_string()));
+            self.set_option_helper(section_name, "Authenticated", key.authenticated.map(|v| format_bluez_bool_numeric(v)));
             self.set_option_helper(section_name, "EncSize", key.key_length.map(|v| v.to_string()));
             self.set_option_helper(section_name, "EDiv", key.ediv.map(|v| v.to_string()));
             self.set_option_helper(section_name, "Rand", key.rand.clone());
@@ -197,7 +246,7 @@ impl DeviceInfo {
         Some(SignatureKeyData {
             key,
             counter: section.get("Counter").and_then(|s| s.parse().ok()),
-            authenticated: section.get("Authenticated").and_then(|s| s.parse().ok()),
+            authenticated: section.get("Authenticated").and_then(|s| parse_bluez_bool(s)),
         })
     }
 
@@ -205,7 +254,7 @@ impl DeviceInfo {
         if let Some(key) = sig_key {
             self.ini.with_section(Some(section_name)).set("Key", &key.key);
             self.set_option_helper(section_name, "Counter", key.counter.map(|v| v.to_string()));
-            self.set_option_helper(section_name, "Authenticated", key.authenticated.map(|v| v.to_string()));
+            self.set_option_helper(section_name, "Authenticated", key.authenticated.map(|v| format_bluez_bool_text(v)));
         } else {
             self.ini.delete(Some(section_name));
         }

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { btStore } from '@/state';
 	import {
 		matchAllDevices,
@@ -62,9 +63,8 @@
 		};
 	});
 
-	// Unpaired = unmatched + needsSync devices, minus those in manualMatches
-	// needsSync devices go into the unpaired pool so users manually pick what to sync
-	let unpairedDevices = $derived(() => {
+	// Unpaired = unmatched devices, minus those in manualMatches
+	let unpairedDevices = $derived.by(() => {
 		const manualWinAddrs = new Set(
 			manualMatches.map((m) => `${m.windowsControllerAddr}/${m.windowsDevice.address}`)
 		);
@@ -72,15 +72,7 @@
 			manualMatches.map((m) => `${m.linuxControllerAddr}/${m.linuxDevice.address}`)
 		);
 
-		const allDevices: UnmatchedDevice[] = [
-			...matchResult.unmatched,
-			...matchResult.needsSync.flatMap((p) => [
-				{ device: p.windowsDevice, os: 'Windows' as const, controllerAddress: p.controllerAddress },
-				{ device: p.linuxDevice, os: 'Linux' as const, controllerAddress: p.controllerAddress }
-			])
-		];
-
-		return allDevices.filter((d) => {
+		return matchResult.unmatched.filter((d) => {
 			const key = `${d.controllerAddress}/${d.device.address}`;
 			if (d.os === 'Windows') return !manualWinAddrs.has(key);
 			return !manualLinAddrs.has(key);
@@ -177,30 +169,75 @@
 	}
 </script>
 
-<div class="p-4 max-w-4xl mx-auto">
-	<DeviceSyncLayout
-		{matchResult}
-		{manualMatches}
-		unpairedDevices={unpairedDevices()}
-		{deletions}
-		bind:selections
-		onmanualmatch={handleManualMatch}
-		onunlink={handleUnlink}
-		onautounlink={handleAutoUnlink}
-		ontoggledelete={handleToggleDelete}
-	/>
+<div class="gf-root">
+	<div class="gradient-mesh"></div>
 
-	{#if btStore.state.windows || btStore.state.linux}
-		<div class="mt-6 flex justify-end">
-			<button
-				class="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors flex items-center gap-1.5"
-				onclick={exportDebugData}
-			>
-				<Download class="h-3 w-3" />
-				Export debug data
+	<div class="gf-content">
+		<!-- Header -->
+		<div class="sync-header">
+			<button class="back-btn mb-4" onclick={() => goto('/')}>
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+				Back
 			</button>
+			<h1 class="sync-title">Device Sync</h1>
+			<p class="sync-tagline">Match and sync Bluetooth pairing keys between systems</p>
 		</div>
-	{/if}
+
+		<!-- Sync content -->
+		<DeviceSyncLayout
+			{matchResult}
+			{manualMatches}
+			unpairedDevices={unpairedDevices}
+			{deletions}
+			bind:selections
+			onmanualmatch={handleManualMatch}
+			onunlink={handleUnlink}
+			onautounlink={handleAutoUnlink}
+			ontoggledelete={handleToggleDelete}
+		/>
+
+		{#if btStore.state.windows || btStore.state.linux}
+			<div class="debug-row">
+				<button class="gf-btn ghost small" onclick={exportDebugData}>
+					<Download class="h-3 w-3" />
+					Export debug data
+				</button>
+			</div>
+		{/if}
+	</div>
 </div>
 
-<SyncActionBar {matchResult} {manualMatches} {selections} {deletions} unpairedDevices={unpairedDevices()} />
+<SyncActionBar {matchResult} {manualMatches} {selections} {deletions} unpairedDevices={unpairedDevices} />
+
+<style>
+	/* Header */
+	.sync-header {
+		margin-bottom: 2rem;
+	}
+
+	.sync-title {
+		font-size: 28px;
+		font-weight: 700;
+		letter-spacing: -0.03em;
+		margin: 0;
+		background: linear-gradient(135deg, #fafafa 0%, #a78bfa 50%, #60a5fa 100%);
+		-webkit-background-clip: text;
+		background-clip: text;
+		-webkit-text-fill-color: transparent;
+	}
+
+	.sync-tagline {
+		color: rgba(250, 250, 250, 0.4);
+		font-size: 14px;
+		font-weight: 400;
+		margin: 0.35rem 0 0;
+	}
+
+	/* Debug row */
+	.debug-row {
+		margin-top: 24px;
+		display: flex;
+		justify-content: flex-end;
+	}
+
+</style>

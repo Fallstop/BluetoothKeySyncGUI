@@ -92,7 +92,7 @@ pub struct BluetoothLinkKey {
 #[app_macros::ipc_type]
 pub struct LongTermKeyData {
     pub key: String,
-    pub authenticated: Option<u8>,
+    pub authenticated: Option<bool>,
     pub key_length: Option<u32>,
     #[serde(default, deserialize_with = "string_or_u32::deserialize")]
     pub ediv: Option<u32>,
@@ -103,7 +103,7 @@ pub struct LongTermKeyData {
 pub struct SignatureKeyData {
     pub key: String,
     pub counter: Option<u32>,
-    pub authenticated: Option<u8>,
+    pub authenticated: Option<bool>,
 }
 
 #[app_macros::ipc_type]

@@ -149,13 +149,21 @@ pub async fn extract_hive_data(
                         (None, None) => continue,
                     };
 
+                    // Enrich LE data with address type from device cache
+                    let le_data = le_data.clone().map(|mut le| {
+                        if le.address_type.is_none() {
+                            le.address_type = get_device_le_address_type(&root_key, device_mac, &mut hive);
+                        }
+                        le
+                    });
+
                     devices.push(BluetoothDevice {
                         name: Some(device_name),
                         address: MacAddress::from_str(device_mac).unwrap_or(MacAddress::default()),
                         device_id: None,
                         device_type,
                         link_key: link_key.clone(),
-                        le_data: le_data.clone(),
+                        le_data,
                     });
                 }
 
@@ -271,6 +279,14 @@ fn parse_controller_devices(
             (None, None) => continue, // Skip invalid entries
         };
 
+        // Enrich LE data with address type from device cache
+        let le_data = le_data.map(|mut le| {
+            if le.address_type.is_none() {
+                le.address_type = get_device_le_address_type(root_key, &device_mac, hive);
+            }
+            le
+        });
+
         devices.push(BluetoothDevice {
             name: Some(device_name),
             address: MacAddress::from_str(&device_mac).unwrap_or(MacAddress::default()),
@@ -292,7 +308,7 @@ fn parse_le_values(
     let ltk_key = get_binary_hex("LTK");
     let long_term_key = ltk_key.map(|key| LongTermKeyData {
         key,
-        authenticated: None,
+        authenticated: get_dword("Authenticated").map(|v| v != 0),
         key_length: get_dword("KeyLength"),
         ediv: get_dword("EDIV"),
         rand: get_qword_string("ERand"),
@@ -300,7 +316,7 @@ fn parse_le_values(
     let local_csrk = get_binary_hex("CSRK").map(|key| SignatureKeyData {
         key,
         counter: None,
-        authenticated: None,
+        authenticated: get_dword("MasterCSRKStatus").map(|v| v != 0),
     });
     let remote_csrk = get_binary_hex("CSRKInbound").map(|key| SignatureKeyData {
         key,
@@ -321,6 +337,42 @@ fn parse_le_values(
         remote_signature_key: remote_csrk,
         address_type: None,
     })
+}
+
+fn get_device_le_address_type(
+    root_key: &KeyNode,
+    mac_address: &str,
+    hive: &mut Hive<File, CleanHive>,
+) -> Option<String> {
+    let device_cache_paths = [
+        r"ControlSet001\Services\BTHPORT\Parameters\Devices",
+        r"ControlSet002\Services\BTHPORT\Parameters\Devices",
+        r"CurrentControlSet\Services\BTHPORT\Parameters\Devices",
+    ];
+
+    for cache_path in device_cache_paths.iter() {
+        if let Ok(Some(devices_key)) = root_key.subpath(*cache_path, hive) {
+            if let Ok(device_subkeys) = devices_key.borrow().subkeys(hive) {
+                for device_subkey in device_subkeys.iter() {
+                    let device_key = device_subkey.borrow();
+                    if device_key.name().to_lowercase() == mac_address.to_lowercase() {
+                        for value in device_key.values() {
+                            if value.name() == "LEAddressType" {
+                                if let RegistryValue::RegDWord(v) = value.value() {
+                                    return match v {
+                                        0 => Some("public".to_string()),
+                                        1 => Some("static".to_string()),
+                                        _ => None,
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 fn get_device_name_from_cache(

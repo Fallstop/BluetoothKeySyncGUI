@@ -1,5 +1,7 @@
 pub mod api;
 pub mod bluetooth;
+pub mod elevated;
+pub mod sync;
 
 use tauri::Manager;
 

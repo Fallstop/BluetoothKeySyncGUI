@@ -7,7 +7,8 @@
 		device,
 		os,
 		side,
-		dragClass = '',
+		isDragSource = false,
+		isDragTarget = false,
 		canDrag = false,
 		onpointerdown,
 		onpointermove,
@@ -17,7 +18,8 @@
 		device: BluetoothDevice;
 		os: HostDistributions;
 		side: 'left' | 'right';
-		dragClass?: string;
+		isDragSource?: boolean;
+		isDragTarget?: boolean;
 		canDrag?: boolean;
 		onpointerdown?: (e: PointerEvent) => void;
 		onpointermove?: (e: PointerEvent) => void;
@@ -26,24 +28,82 @@
 	} = $props();
 
 	let colors = $derived(osColor(os));
-	let borderClass = $derived(side === 'left' ? `border-l-4 ${colors.borderL}` : `border-r-4 ${colors.borderR}`);
-	let textAlign = $derived(side === 'right' ? 'text-right' : '');
-	let indicatorJustify = $derived(side === 'right' ? 'justify-end' : '');
 	let pairSide = $derived(os === 'Windows' ? 'win' : 'lin');
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	data-pair-side={pairSide}
-	class="flex-1 min-w-0 rounded-md {borderClass} bg-muted/30 px-3 py-2 transition-all {dragClass} {canDrag ? 'cursor-grab active:cursor-grabbing' : ''}"
+	class="mini-card"
+	class:side-left={side === 'left'}
+	class:side-right={side === 'right'}
+	class:drag-source={isDragSource}
+	class:drag-target={isDragTarget}
+	class:can-drag={canDrag}
+	style="--os-border: {colors.borderColor}; --os-ring: {colors.ringColor}; --os-ring-hover: {colors.ringHoverColor}"
 	{onpointerdown}
 	{onpointermove}
 	{onpointerup}
 	{onpointercancel}
 	onlostpointercapture={onpointercancel}
 >
-	<div class="font-medium text-sm truncate {textAlign}">
+	<div class="device-name" class:text-right={side === 'right'}>
 		{device.name ?? 'Unknown Device'}
 	</div>
-	<KeyIndicators {device} class="mt-0.5 {indicatorJustify}" />
+	<div class="indicator-row">
+		<KeyIndicators {device} align={side === 'right' ? 'right' : 'left'} />
+	</div>
 </div>
+
+<style>
+	.mini-card {
+		flex: 1;
+		min-width: 0;
+		border-radius: 8px;
+		background: rgba(255, 255, 255, 0.03);
+		border: 1px solid rgba(255, 255, 255, 0.06);
+		padding: 8px 12px;
+		transition: all 0.2s;
+	}
+
+	.mini-card.side-left {
+		border-left: 3px solid var(--os-border);
+	}
+
+	.mini-card.side-right {
+		border-right: 3px solid var(--os-border);
+	}
+
+	.mini-card.can-drag {
+		cursor: grab;
+	}
+
+	.mini-card.can-drag:active {
+		cursor: grabbing;
+	}
+
+	.mini-card.drag-source {
+		box-shadow: 0 0 0 2px var(--os-ring);
+	}
+
+	.mini-card.drag-target {
+		box-shadow: 0 0 0 2px var(--os-ring-hover);
+	}
+
+	.device-name {
+		font-weight: 500;
+		font-size: 14px;
+		color: rgba(250, 250, 250, 0.85);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.device-name.text-right {
+		text-align: right;
+	}
+
+	.indicator-row {
+		margin-top: 2px;
+	}
+</style>
