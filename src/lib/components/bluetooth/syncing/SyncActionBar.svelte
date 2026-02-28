@@ -19,20 +19,22 @@
 	import { ArrowRight, Check, X, Loader2, AlertTriangle, Trash2 } from 'lucide-svelte';
 	import { rpc } from '$lib/api';
 	import { osColor } from './os-theme';
-	import { windowsState } from '@/state';
+	import { windowsState, btStore } from '@/state';
 
 	let {
 		matchResult,
 		manualMatches,
 		selections,
 		deletions,
-		unpairedDevices
+		unpairedDevices,
+		onsynccomplete
 	}: {
 		matchResult: MatchResult;
 		manualMatches: ManualMatch[];
 		selections: SyncSelections;
 		deletions: Set<string>;
 		unpairedDevices: UnmatchedDevice[];
+		onsynccomplete?: () => void;
 	} = $props();
 
 	let isApplying = $state(false);
@@ -125,6 +127,18 @@
 						message: `${data.applied_count} succeeded, ${data.failed_count} failed. ${data.errors.join('; ')}`
 					};
 				}
+
+				// Refresh btStore with updated data so the UI reflects synced state
+				if (data.refreshed_linux) {
+					btStore.state.linux = data.refreshed_linux;
+				}
+				if (data.refreshed_windows) {
+					btStore.state.windows = data.refreshed_windows;
+				}
+
+				// Clear stale manual matches, deletions, and dismissed pairs
+				// so synced devices don't appear as duplicates
+				onsynccomplete?.();
 			} else {
 				applyResult = { success: false, message: result.data };
 			}

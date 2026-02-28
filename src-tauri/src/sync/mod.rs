@@ -1,25 +1,40 @@
 pub mod linux_writer;
 pub mod windows_writer;
 
+use std::path::Path;
 use std::sync::Mutex;
 
-use bluetooth_model::HostDistributions;
+use bluetooth_model::{BluetoothData, HostDistributions};
 
 use crate::api::sync_api::SyncProposal;
+use crate::bluetooth::hive_parse;
 
 static SYNC_LOCK: Mutex<()> = Mutex::new(());
 
-/// Apply all sync proposals, batching Windows operations into a single hive open/commit cycle.
-/// Returns (applied_count, failed_count, errors).
+/// Result of applying all sync proposals, including refreshed data for UI update.
+pub struct ApplyResult {
+    pub applied: u32,
+    pub failed: u32,
+    pub errors: Vec<String>,
+    pub refreshed_linux: Option<BluetoothData>,
+    pub refreshed_windows: Option<BluetoothData>,
+}
+
+/// Apply all sync proposals, batching operations by OS.
+/// Windows proposals are batched into a single hive open/commit cycle.
+/// Linux proposals are batched into a single elevated scrapper invocation (one password prompt).
+/// Returns ApplyResult with refreshed data from both platforms.
 pub fn apply_all_proposals(
     proposals: &[SyncProposal],
     hive_path: Option<&str>,
-) -> (u32, u32, Vec<String>) {
+) -> ApplyResult {
     let _lock = SYNC_LOCK.lock().unwrap_or_else(|e| e.into_inner());
 
     let mut applied = 0u32;
     let mut failed = 0u32;
     let mut errors = Vec::new();
+    let mut refreshed_linux: Option<BluetoothData> = None;
+    let mut refreshed_windows: Option<BluetoothData> = None;
 
     // Separate proposals by target OS
     let mut win_proposals = Vec::new();
@@ -65,6 +80,17 @@ pub fn apply_all_proposals(
                         errors.push(e);
                     }
                 }
+
+                // Re-parse the Windows hive to get refreshed data
+                let hive_pathbuf = Path::new(path).to_path_buf();
+                match tokio::runtime::Handle::current()
+                    .block_on(hive_parse::extract_hive_data(&hive_pathbuf))
+                {
+                    Ok(data) => refreshed_windows = Some(data),
+                    Err(e) => {
+                        errors.push(format!("Warning: Windows changes applied but re-read failed: {}", e));
+                    }
+                }
             }
             None => {
                 failed += win_proposals.len() as u32;
@@ -73,33 +99,29 @@ pub fn apply_all_proposals(
         }
     }
 
-    // Linux operations individually
-    let mut any_linux_success = false;
-    for proposal in &lin_proposals {
-        let result = match proposal {
-            SyncProposal::CopyKeys { .. } => linux_writer::copy_keys_to_linux(proposal),
-            SyncProposal::DeleteDevice { .. } => linux_writer::delete_device_from_linux(proposal),
-        };
-        match result {
-            Ok(_) => {
-                applied += 1;
-                any_linux_success = true;
+    // Batch Linux operations: single elevated invocation (one password prompt)
+    if !lin_proposals.is_empty() {
+        match linux_writer::batch_linux_operations(&lin_proposals) {
+            Ok(batch_result) => {
+                applied += batch_result.applied;
+                failed += batch_result.failed;
+                errors.extend(batch_result.errors);
+                refreshed_linux = batch_result.refreshed_linux;
             }
             Err(e) => {
-                failed += 1;
+                failed += lin_proposals.len() as u32;
                 errors.push(e);
             }
         }
     }
 
-    // Restart bluetoothd after Linux writes so synced keys take effect
-    if any_linux_success {
-        if let Err(e) = linux_writer::restart_bluetooth() {
-            errors.push(format!("Warning: keys were written but bluetooth service restart failed: {}", e));
-        }
+    ApplyResult {
+        applied,
+        failed,
+        errors,
+        refreshed_linux,
+        refreshed_windows,
     }
-
-    (applied, failed, errors)
 }
 
 /// Validate a hex key string (must be even-length hex chars).

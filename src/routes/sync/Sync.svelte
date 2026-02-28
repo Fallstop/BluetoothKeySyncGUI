@@ -145,6 +145,15 @@
 		deletions = next;
 	}
 
+	function handleSyncComplete() {
+		// Clear stale state — the refreshed btStore data will re-derive
+		// matchResult correctly, so manual matches, deletions, and dismissed
+		// pairs from the old state would be duplicates or dangling references
+		manualMatches = [];
+		deletions = new Set();
+		dismissedAutoMatches = new Set();
+	}
+
 	// --- Debug export ---
 	function exportDebugData() {
 		const debugData = {
@@ -207,7 +216,7 @@
 	</div>
 </div>
 
-<SyncActionBar {matchResult} {manualMatches} {selections} {deletions} unpairedDevices={unpairedDevices} />
+<SyncActionBar {matchResult} {manualMatches} {selections} {deletions} unpairedDevices={unpairedDevices} onsynccomplete={handleSyncComplete} />
 
 <style>
 	/* Header */

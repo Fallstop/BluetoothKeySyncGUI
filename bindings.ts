@@ -30,7 +30,7 @@ export type SyncProposal = { action: "CopyKeys"; source_device: BluetoothDevice;
 
 export type SyncRequest = { proposals: SyncProposal[]; windows_hive_path: string | null }
 
-export type SyncResult = { success: boolean; applied_count: number; failed_count: number; errors: string[] }
+export type SyncResult = { success: boolean; applied_count: number; failed_count: number; errors: string[]; refreshed_linux: BluetoothData | null; refreshed_windows: BluetoothData | null }
 
 const ARGS_MAP = { 'linux':'{"parse_local_config":[]}', 'sync':'{"apply_sync_proposals":["request"]}', 'windows':'{"parse_windows_hive":["path_str"]}' }
 export type Router = { "linux": {parse_local_config: () => Promise<Message<BluetoothData>>},

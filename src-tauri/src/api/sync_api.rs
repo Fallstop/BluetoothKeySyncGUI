@@ -1,4 +1,4 @@
-use bluetooth_model::{BluetoothDevice, HostDistributions};
+use bluetooth_model::{BluetoothData, BluetoothDevice, HostDistributions};
 use serde::{Deserialize, Serialize};
 
 use crate::api::message::Message;
@@ -34,6 +34,8 @@ pub struct SyncResult {
     pub applied_count: u32,
     pub failed_count: u32,
     pub errors: Vec<String>,
+    pub refreshed_linux: Option<BluetoothData>,
+    pub refreshed_windows: Option<BluetoothData>,
 }
 
 #[taurpc::procedures(path = "sync")]
@@ -56,19 +58,21 @@ impl SyncApi for SyncApiImpl {
         .await;
 
         match result {
-            Ok((applied_count, failed_count, errors)) => {
-                if applied_count == 0 && failed_count > 0 {
+            Ok(apply_result) => {
+                if apply_result.applied == 0 && apply_result.failed > 0 {
                     Message::Error(format!(
                         "All {} operations failed: {}",
-                        failed_count,
-                        errors.join("; ")
+                        apply_result.failed,
+                        apply_result.errors.join("; ")
                     ))
                 } else {
                     Message::Success(SyncResult {
-                        success: failed_count == 0,
-                        applied_count,
-                        failed_count,
-                        errors,
+                        success: apply_result.failed == 0,
+                        applied_count: apply_result.applied,
+                        failed_count: apply_result.failed,
+                        errors: apply_result.errors,
+                        refreshed_linux: apply_result.refreshed_linux,
+                        refreshed_windows: apply_result.refreshed_windows,
                     })
                 }
             }

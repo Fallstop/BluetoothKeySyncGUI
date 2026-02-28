@@ -1,3 +1,6 @@
+use bluetooth_model::batch::{
+    BatchOperation, BatchOperationResult, BatchRequest, BatchResponse,
+};
 use bluetooth_model::{BluetoothData, BluetoothDevice, HostDistributions};
 
 mod device_info;
@@ -54,6 +57,13 @@ enum Command {
 
     /// Restart the bluetoothd service so synced keys take effect
     RestartBluetooth,
+
+    /// Execute multiple operations in a single invocation (one password prompt)
+    Batch {
+        /// Base64-encoded JSON of BatchRequest
+        #[arg(long)]
+        data: String,
+    },
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -89,6 +99,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::RestartBluetooth => {
             let result = handle_restart_bluetooth();
             print_result(result);
+        }
+        Command::Batch { data } => {
+            let response = handle_batch(&data);
+            let json = serde_json::to_string(&response)
+                .unwrap_or_else(|e| format!("{{\"results\":[],\"error\":\"{}\"}}", e));
+            print!("{}", json);
         }
     }
 
@@ -205,6 +221,94 @@ fn handle_restart_bluetooth() -> Result<(), Box<dyn std::error::Error>> {
 
     eprintln!("Successfully restarted bluetooth service");
     Ok(())
+}
+
+fn handle_batch(data_b64: &str) -> BatchResponse {
+    let json_bytes = match base64::engine::general_purpose::STANDARD.decode(data_b64) {
+        Ok(b) => b,
+        Err(e) => {
+            return BatchResponse {
+                results: vec![BatchOperationResult {
+                    index: 0,
+                    success: false,
+                    error: Some(format!("Failed to decode base64: {}", e)),
+                }],
+                scan_data: None,
+            };
+        }
+    };
+
+    let request: BatchRequest = match serde_json::from_slice(&json_bytes) {
+        Ok(r) => r,
+        Err(e) => {
+            return BatchResponse {
+                results: vec![BatchOperationResult {
+                    index: 0,
+                    success: false,
+                    error: Some(format!("Failed to parse BatchRequest JSON: {}", e)),
+                }],
+                scan_data: None,
+            };
+        }
+    };
+
+    let mut results = Vec::with_capacity(request.operations.len());
+    let mut scan_data = None;
+
+    for (index, op) in request.operations.iter().enumerate() {
+        match op {
+            BatchOperation::WriteKeys {
+                controller,
+                device,
+                data,
+            } => {
+                let result = handle_write_keys(controller, device, data);
+                results.push(BatchOperationResult {
+                    index,
+                    success: result.is_ok(),
+                    error: result.err().map(|e| e.to_string()),
+                });
+            }
+            BatchOperation::DeleteDevice {
+                controller,
+                device,
+            } => {
+                let result = handle_delete_device(controller, device);
+                results.push(BatchOperationResult {
+                    index,
+                    success: result.is_ok(),
+                    error: result.err().map(|e| e.to_string()),
+                });
+            }
+            BatchOperation::RestartBluetooth => {
+                let result = handle_restart_bluetooth();
+                results.push(BatchOperationResult {
+                    index,
+                    success: result.is_ok(),
+                    error: result.err().map(|e| e.to_string()),
+                });
+            }
+            BatchOperation::Scan => match read_bluetooth_data() {
+                Ok(data) => {
+                    scan_data = Some(data);
+                    results.push(BatchOperationResult {
+                        index,
+                        success: true,
+                        error: None,
+                    });
+                }
+                Err(e) => {
+                    results.push(BatchOperationResult {
+                        index,
+                        success: false,
+                        error: Some(e.to_string()),
+                    });
+                }
+            },
+        }
+    }
+
+    BatchResponse { results, scan_data }
 }
 
 fn print_result(result: Result<(), Box<dyn std::error::Error>>) {
