@@ -49,34 +49,27 @@ pub struct SyncApiImpl;
 #[taurpc::resolvers]
 impl SyncApi for SyncApiImpl {
     async fn apply_sync_proposals(self, request: SyncRequest) -> Message<SyncResult> {
-        let result = tokio::task::spawn_blocking(move || {
-            sync::apply_all_proposals(
-                &request.proposals,
-                request.windows_hive_path.as_deref(),
-            )
-        })
+        let apply_result = sync::apply_all_proposals(
+            &request.proposals,
+            request.windows_hive_path.as_deref(),
+        )
         .await;
 
-        match result {
-            Ok(apply_result) => {
-                if apply_result.applied == 0 && apply_result.failed > 0 {
-                    Message::Error(format!(
-                        "All {} operations failed: {}",
-                        apply_result.failed,
-                        apply_result.errors.join("; ")
-                    ))
-                } else {
-                    Message::Success(SyncResult {
-                        success: apply_result.failed == 0,
-                        applied_count: apply_result.applied,
-                        failed_count: apply_result.failed,
-                        errors: apply_result.errors,
-                        refreshed_linux: apply_result.refreshed_linux,
-                        refreshed_windows: apply_result.refreshed_windows,
-                    })
-                }
-            }
-            Err(e) => Message::Error(format!("Sync task failed: {}", e)),
+        if apply_result.applied == 0 && apply_result.failed > 0 {
+            Message::Error(format!(
+                "All {} operations failed: {}",
+                apply_result.failed,
+                apply_result.errors.join("; ")
+            ))
+        } else {
+            Message::Success(SyncResult {
+                success: apply_result.failed == 0,
+                applied_count: apply_result.applied,
+                failed_count: apply_result.failed,
+                errors: apply_result.errors,
+                refreshed_linux: apply_result.refreshed_linux,
+                refreshed_windows: apply_result.refreshed_windows,
+            })
         }
     }
 }

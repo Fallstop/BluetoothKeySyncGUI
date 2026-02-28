@@ -323,7 +323,7 @@
 	</div>
 </div>
 
-<style>
+<style lang="css">
 	.gf-header {
 		text-align: center;
 		margin-bottom: 3rem;

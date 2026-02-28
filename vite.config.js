@@ -12,15 +12,8 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
   plugins: [
-		tailwindcss(),
 		sveltekit(),
-    // topLevelAwait({
-    //   // The export name of top-level await promise for each chunk module
-    //   promiseExportName: "__tla",
-    //   // The function to generate import names of top-level await promise in each chunk module
-    //   promiseImportName: i => `__tla_${i}`
-    // })
-		// w
+		tailwindcss(),
 	],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

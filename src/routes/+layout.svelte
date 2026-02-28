@@ -21,7 +21,7 @@
 	{@render children?.()}
 </div>
 
-<style>
+<style lang="css">
 	.app-shell {
 		min-height: 100vh;
 		display: flex;

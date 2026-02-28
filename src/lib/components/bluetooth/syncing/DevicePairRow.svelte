@@ -269,7 +269,7 @@
 	{/if}
 </div>
 
-<style>
+<style lang="css">
 	.pair-row {
 		border-radius: 10px;
 		border: 1px solid rgba(255, 255, 255, 0.06);

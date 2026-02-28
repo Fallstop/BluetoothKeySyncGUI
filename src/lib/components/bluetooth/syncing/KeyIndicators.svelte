@@ -32,7 +32,7 @@
 	{/if}
 </div>
 
-<style>
+<style lang="css">
 	.indicators {
 		display: flex;
 		align-items: center;

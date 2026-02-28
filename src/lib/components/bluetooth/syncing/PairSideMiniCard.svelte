@@ -50,12 +50,15 @@
 	<div class="device-name" class:text-right={side === 'right'}>
 		{device.name ?? 'Unknown Device'}
 	</div>
+	<div class="device-mac" class:text-right={side === 'right'}>
+		{device.address}
+	</div>
 	<div class="indicator-row">
 		<KeyIndicators {device} align={side === 'right' ? 'right' : 'left'} />
 	</div>
 </div>
 
-<style>
+<style lang="css">
 	.mini-card {
 		flex: 1;
 		min-width: 0;
@@ -100,6 +103,17 @@
 	}
 
 	.device-name.text-right {
+		text-align: right;
+	}
+
+	.device-mac {
+		font-size: 11px;
+		font-family: monospace;
+		color: rgba(250, 250, 250, 0.35);
+		margin-top: 1px;
+	}
+
+	.device-mac.text-right {
 		text-align: right;
 	}
 

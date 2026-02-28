@@ -364,7 +364,7 @@
 	{/if}
 </div>
 
-<style>
+<style lang="css">
 	.sync-sections {
 		display: flex;
 		flex-direction: column;

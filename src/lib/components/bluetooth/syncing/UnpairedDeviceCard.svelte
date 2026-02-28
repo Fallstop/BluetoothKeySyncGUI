@@ -51,6 +51,9 @@
 			<div class="device-name" class:name-deleted={markedForDeletion}>
 				{unmatchedDevice.device.name ?? 'Unknown Device'}
 			</div>
+			<div class="device-mac" class:name-deleted={markedForDeletion}>
+				{unmatchedDevice.device.address}
+			</div>
 			<div class="indicator-row">
 				<KeyIndicators device={unmatchedDevice.device} />
 			</div>
@@ -89,7 +92,7 @@
 	{/if}
 </button>
 
-<style>
+<style lang="css">
 	.card {
 		width: 100%;
 		text-align: left;
@@ -175,6 +178,18 @@
 	.device-name.name-deleted {
 		text-decoration: line-through;
 		color: rgba(250, 250, 250, 0.4);
+	}
+
+	.device-mac {
+		font-size: 11px;
+		font-family: monospace;
+		color: rgba(250, 250, 250, 0.35);
+		margin-top: 1px;
+	}
+
+	.device-mac.name-deleted {
+		text-decoration: line-through;
+		color: rgba(250, 250, 250, 0.2);
 	}
 
 	.indicator-row {

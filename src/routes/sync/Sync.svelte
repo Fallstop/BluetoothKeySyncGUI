@@ -16,7 +16,26 @@
 	} from '@/components/bluetooth/syncing/matching';
 	import DeviceSyncLayout from '@/components/bluetooth/syncing/DeviceSyncLayout.svelte';
 	import SyncActionBar from '@/components/bluetooth/syncing/SyncActionBar.svelte';
-	import { Download } from 'lucide-svelte';
+	import { Download, RefreshCw } from 'lucide-svelte';
+	import { rpc } from '@/api';
+
+	let isRefreshing = $state(false);
+
+	async function refreshLinuxData() {
+		if (isRefreshing) return;
+		isRefreshing = true;
+		try {
+			const [response] = await Promise.all([
+				rpc.linux.parse_local_config(),
+				new Promise((r) => setTimeout(r, 500))
+			]);
+			if (response.type === 'Success') {
+				btStore.state.linux = response.data;
+			}
+		} finally {
+			isRefreshing = false;
+		}
+	}
 
 	let rawMatchResult = $derived(matchAllDevices(btStore.state.windows, btStore.state.linux));
 
@@ -188,22 +207,34 @@
 				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
 				Back
 			</button>
-			<h1 class="sync-title">Device Sync</h1>
+			<div class="sync-title-row">
+				<h1 class="sync-title">Device Sync</h1>
+				<button class="gf-btn ghost small refresh-btn" onclick={refreshLinuxData} disabled={isRefreshing} title="Refresh Linux Bluetooth data">
+					<RefreshCw class="h-4 w-4 {isRefreshing ? 'animate-spin' : ''}" />
+				</button>
+			</div>
 			<p class="sync-tagline">Match and sync Bluetooth pairing keys between systems</p>
 		</div>
 
 		<!-- Sync content -->
-		<DeviceSyncLayout
-			{matchResult}
-			{manualMatches}
-			unpairedDevices={unpairedDevices}
-			{deletions}
-			bind:selections
-			onmanualmatch={handleManualMatch}
-			onunlink={handleUnlink}
-			onautounlink={handleAutoUnlink}
-			ontoggledelete={handleToggleDelete}
-		/>
+		{#if isRefreshing}
+			<div class="refresh-panel">
+				<div class="refresh-bar"><div class="refresh-fill"></div></div>
+				<p class="refresh-text">Refreshing Linux Bluetooth data...</p>
+			</div>
+		{:else}
+			<DeviceSyncLayout
+				{matchResult}
+				{manualMatches}
+				unpairedDevices={unpairedDevices}
+				{deletions}
+				bind:selections
+				onmanualmatch={handleManualMatch}
+				onunlink={handleUnlink}
+				onautounlink={handleAutoUnlink}
+				ontoggledelete={handleToggleDelete}
+			/>
+		{/if}
 
 		{#if btStore.state.windows || btStore.state.linux}
 			<div class="debug-row">
@@ -218,10 +249,25 @@
 
 <SyncActionBar {matchResult} {manualMatches} {selections} {deletions} unpairedDevices={unpairedDevices} onsynccomplete={handleSyncComplete} />
 
-<style>
+<style lang="css">
 	/* Header */
 	.sync-header {
 		margin-bottom: 2rem;
+	}
+
+	.sync-title-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.refresh-btn {
+		opacity: 0.6;
+		transition: opacity 0.15s;
+	}
+
+	.refresh-btn:hover:not(:disabled) {
+		opacity: 1;
 	}
 
 	.sync-title {
@@ -240,6 +286,45 @@
 		font-size: 14px;
 		font-weight: 400;
 		margin: 0.35rem 0 0;
+	}
+
+	/* Refresh loading state */
+	.refresh-panel {
+		border: 1px solid rgba(255, 255, 255, 0.06);
+		border-radius: 12px;
+		background: rgba(255, 255, 255, 0.015);
+		padding: 48px 16px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.refresh-bar {
+		width: min(280px, 80%);
+		height: 3px;
+		background: rgba(255, 255, 255, 0.06);
+		border-radius: 2px;
+		overflow: hidden;
+		margin-bottom: 12px;
+	}
+
+	.refresh-fill {
+		width: 30%;
+		height: 100%;
+		background: linear-gradient(90deg, #a78bfa, #60a5fa);
+		border-radius: 2px;
+		animation: refresh-sweep 1.5s ease-in-out infinite;
+	}
+
+	@keyframes refresh-sweep {
+		0% { transform: translateX(-100%); }
+		100% { transform: translateX(400%); }
+	}
+
+	.refresh-text {
+		font-size: 13px;
+		color: rgba(250, 250, 250, 0.4);
+		margin: 0;
 	}
 
 	/* Debug row */

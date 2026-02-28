@@ -41,6 +41,13 @@
 	let applyResult = $state<{ success: boolean; message: string } | null>(null);
 	let dialogOpen = $state(false);
 
+	// Reset stale result when reopening the dialog
+	$effect(() => {
+		if (dialogOpen) {
+			applyResult = null;
+		}
+	});
+
 	let copyProposals = $derived(buildSyncProposals(matchResult, selections, manualMatches));
 	let deleteProposals = $derived(buildDeleteProposals(deletions, unpairedDevices));
 	let allProposals = $derived([...copyProposals, ...deleteProposals]);
@@ -102,6 +109,7 @@
 	});
 
 	let hasAnyActionable = $derived(matchResult.needsSync.length > 0 || manualMatches.length > 0 || deleteCount > 0);
+	let deleteOnly = $derived(readyCount === 0 && deleteCount > 0);
 
 	async function applyChanges() {
 		isApplying = true;
@@ -176,121 +184,136 @@
 				{/if}
 			</div>
 
-			<Dialog.Root bind:open={dialogOpen}>
-				<Dialog.Trigger
-					class="gf-btn primary"
-					disabled={readyCount === 0 && deleteCount === 0}
+			{#if deleteOnly}
+				<!-- Delete-only: apply directly, no review dialog needed -->
+				<button
+					class="gf-btn destructive"
+					onclick={applyChanges}
+					disabled={isApplying}
 				>
-					<ArrowRight class="h-4 w-4" />
-					Review & Apply
-				</Dialog.Trigger>
-				<Dialog.Content class="glass-dialog">
-					<Dialog.Header>
-						<Dialog.Title class="glass-dialog-title">Review Changes</Dialog.Title>
-						<Dialog.Description class="glass-dialog-desc">
-							{#if readyCount > 0 && deleteCount > 0}
-								{readyCount} sync{readyCount !== 1 ? 's' : ''} and {deleteCount} deletion{deleteCount !== 1 ? 's' : ''}.
-							{:else if readyCount > 0}
-								{readyCount} device{readyCount !== 1 ? 's' : ''} will be synced.
-							{:else}
-								{deleteCount} device{deleteCount !== 1 ? 's' : ''} will be deleted.
-							{/if}
-							Review the changes below before applying.
-						</Dialog.Description>
-					</Dialog.Header>
-
-					<div class="review-list">
-						<!-- Sync proposals -->
-						{#each selectedPairs as { pair, direction }}
-							{@const changes = describeSyncChanges(pair, direction)}
-							{@const sourceOs = direction === 'win_to_linux' ? 'Windows' : 'Linux'}
-							{@const targetOs = direction === 'win_to_linux' ? 'Linux' : 'Windows'}
-							<div class="review-card">
-								<div class="review-card-header">
-									<span class="review-device-name">
-										{pair.windowsDevice.name ?? pair.linuxDevice.name ?? 'Unknown'}
-									</span>
-									<div class="review-direction">
-										<span class="os-badge" style="background: {osColor(sourceOs).badgeBg}; color: {osColor(sourceOs).badgeColor}">
-											{sourceOs}
-										</span>
-										<ArrowRight class="h-3 w-3" style="color: rgba(250,250,250,0.3)" />
-										<span class="os-badge" style="background: {osColor(targetOs).badgeBg}; color: {osColor(targetOs).badgeColor}">
-											{targetOs}
-										</span>
-									</div>
-								</div>
-								<div class="review-addresses">
-									<span>Win: {pair.windowsDevice.address}</span>
-									<span>Lin: {pair.linuxDevice.address}</span>
-								</div>
-								{#if changes.length > 0}
-									<p class="review-keys">
-										Keys: {changes.join(', ')}
-									</p>
-								{/if}
-							</div>
-						{/each}
-
-						<!-- Deletion proposals -->
-						{#each deletionDevices as device}
-							<div class="review-card review-card-delete">
-								<div class="review-card-header">
-									<div class="review-delete-label">
-										<Trash2 class="h-3.5 w-3.5" style="color: #ef4444" />
-										<span class="review-device-name">
-											{device.device.name ?? 'Unknown Device'}
-										</span>
-									</div>
-									<span class="delete-badge">
-										delete
-									</span>
-								</div>
-								<div class="review-addresses">
-									{device.os} &middot; {device.device.address}
-								</div>
-							</div>
-						{/each}
-					</div>
-
-					{#if applyResult}
-						<div
-							class="result-alert"
-							class:result-success={applyResult.success}
-							class:result-error={!applyResult.success}
-						>
-							{applyResult.message}
-						</div>
+					{#if isApplying}
+						<Loader2 class="h-4 w-4 animate-spin" />
+						Deleting...
+					{:else}
+						<Trash2 class="h-4 w-4" />
+						Delete
 					{/if}
-
-					<Dialog.Footer class="glass-dialog-footer">
-						<Dialog.Close class="gf-btn ghost">
-							<X class="h-4 w-4" />
-							{applyResult?.success ? 'Done' : 'Cancel'}
-						</Dialog.Close>
-						{#if !applyResult?.success}
-							<button
-								class="gf-btn {deleteCount > 0 && readyCount === 0 ? 'destructive' : 'primary'}"
-								onclick={applyChanges}
-								disabled={isApplying}
-							>
-								{#if isApplying}
-									<Loader2 class="h-4 w-4 animate-spin" />
-									Applying...
+				</button>
+			{:else}
+				<Dialog.Root bind:open={dialogOpen}>
+					<Dialog.Trigger
+						class="gf-btn primary"
+						disabled={readyCount === 0 && deleteCount === 0}
+					>
+						<ArrowRight class="h-4 w-4" />
+						Review & Apply
+					</Dialog.Trigger>
+					<Dialog.Content class="glass-dialog">
+						<Dialog.Header>
+							<Dialog.Title class="glass-dialog-title">Review Changes</Dialog.Title>
+							<Dialog.Description class="glass-dialog-desc">
+								{#if readyCount > 0 && deleteCount > 0}
+									{readyCount} sync{readyCount !== 1 ? 's' : ''} and {deleteCount} deletion{deleteCount !== 1 ? 's' : ''}.
 								{:else}
-									<Check class="h-4 w-4" />
-									Apply Changes
+									{readyCount} device{readyCount !== 1 ? 's' : ''} will be synced.
 								{/if}
-							</button>
+								Review the changes below before applying.
+							</Dialog.Description>
+						</Dialog.Header>
+
+						<div class="review-list">
+							<!-- Sync proposals -->
+							{#each selectedPairs as { pair, direction }}
+								{@const changes = describeSyncChanges(pair, direction)}
+								{@const sourceOs = direction === 'win_to_linux' ? 'Windows' : 'Linux'}
+								{@const targetOs = direction === 'win_to_linux' ? 'Linux' : 'Windows'}
+								<div class="review-card">
+									<div class="review-card-header">
+										<span class="review-device-name">
+											{pair.windowsDevice.name ?? pair.linuxDevice.name ?? 'Unknown'}
+										</span>
+										<div class="review-direction">
+											<span class="os-badge" style="background: {osColor(sourceOs).badgeBg}; color: {osColor(sourceOs).badgeColor}">
+												{sourceOs}
+											</span>
+											<ArrowRight class="h-3 w-3" style="color: rgba(250,250,250,0.3)" />
+											<span class="os-badge" style="background: {osColor(targetOs).badgeBg}; color: {osColor(targetOs).badgeColor}">
+												{targetOs}
+											</span>
+										</div>
+									</div>
+									<div class="review-addresses">
+										<span>Win: {pair.windowsDevice.address}</span>
+										<span>Lin: {pair.linuxDevice.address}</span>
+									</div>
+									{#if changes.length > 0}
+										<p class="review-keys">
+											Keys: {changes.join(', ')}
+										</p>
+									{/if}
+								</div>
+							{/each}
+
+							<!-- Deletion proposals -->
+							{#each deletionDevices as device}
+								<div class="review-card review-card-delete">
+									<div class="review-card-header">
+										<div class="review-delete-label">
+											<Trash2 class="h-3.5 w-3.5" style="color: #ef4444" />
+											<span class="review-device-name">
+												{device.device.name ?? 'Unknown Device'}
+											</span>
+										</div>
+										<span class="delete-badge">
+											delete
+										</span>
+									</div>
+									<div class="review-addresses">
+										{device.os} &middot; {device.device.address}
+									</div>
+								</div>
+							{/each}
+						</div>
+
+						{#if applyResult}
+							<div
+								class="result-alert"
+								class:result-success={applyResult.success}
+								class:result-error={!applyResult.success}
+							>
+								{applyResult.message}
+							</div>
 						{/if}
-					</Dialog.Footer>
-				</Dialog.Content>
-			</Dialog.Root>
+
+						<Dialog.Footer class="glass-dialog-footer">
+							<Dialog.Close class="gf-btn ghost">
+								<X class="h-4 w-4" />
+								{applyResult?.success ? 'Done' : 'Cancel'}
+							</Dialog.Close>
+							{#if !applyResult?.success}
+								<button
+									class="gf-btn {deleteCount > 0 ? 'destructive' : 'primary'}"
+									onclick={applyChanges}
+									disabled={isApplying}
+								>
+									{#if isApplying}
+										<Loader2 class="h-4 w-4 animate-spin" />
+										Applying...
+									{:else}
+										<Check class="h-4 w-4" />
+										Apply Changes
+									{/if}
+								</button>
+							{/if}
+						</Dialog.Footer>
+					</Dialog.Content>
+				</Dialog.Root>
+			{/if}
 		</div>
 	</div>
 {/if}
 
-<style>
+<style lang="css">
 	.action-bar {
 		position: sticky;
 		bottom: 0;

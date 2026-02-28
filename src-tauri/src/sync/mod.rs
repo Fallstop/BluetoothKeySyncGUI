@@ -2,14 +2,14 @@ pub mod linux_writer;
 pub mod windows_writer;
 
 use std::path::Path;
-use std::sync::Mutex;
 
 use bluetooth_model::{BluetoothData, HostDistributions};
+use tokio::sync::Mutex;
 
 use crate::api::sync_api::SyncProposal;
 use crate::bluetooth::hive_parse;
 
-static SYNC_LOCK: Mutex<()> = Mutex::new(());
+static SYNC_LOCK: Mutex<()> = Mutex::const_new(());
 
 /// Result of applying all sync proposals, including refreshed data for UI update.
 pub struct ApplyResult {
@@ -22,13 +22,13 @@ pub struct ApplyResult {
 
 /// Apply all sync proposals, batching operations by OS.
 /// Windows proposals are batched into a single hive open/commit cycle.
-/// Linux proposals are batched into a single elevated scrapper invocation (one password prompt).
+/// Linux proposals are batched via the persistent elevated worker (no password prompt).
 /// Returns ApplyResult with refreshed data from both platforms.
-pub fn apply_all_proposals(
+pub async fn apply_all_proposals(
     proposals: &[SyncProposal],
     hive_path: Option<&str>,
 ) -> ApplyResult {
-    let _lock = SYNC_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _lock = SYNC_LOCK.lock().await;
 
     let mut applied = 0u32;
     let mut failed = 0u32;
@@ -62,33 +62,53 @@ pub fn apply_all_proposals(
     if !win_proposals.is_empty() {
         match hive_path {
             Some(path) => {
-                match windows_writer::apply_batch(path, &win_proposals) {
-                    Ok(results) => {
-                        for result in results {
-                            match result {
-                                Ok(_) => applied += 1,
-                                Err(e) => {
-                                    failed += 1;
-                                    errors.push(e);
+                // Windows hive operations are synchronous — run in blocking task
+                let path_owned = path.to_string();
+                let win_proposals_owned: Vec<SyncProposal> =
+                    win_proposals.iter().map(|p| (*p).clone()).collect();
+
+                let win_result = tokio::task::spawn_blocking(move || {
+                    let refs: Vec<&SyncProposal> = win_proposals_owned.iter().collect();
+                    let batch_result = windows_writer::apply_batch(&path_owned, &refs);
+                    let hive_pathbuf = Path::new(&path_owned).to_path_buf();
+                    (batch_result, hive_pathbuf)
+                })
+                .await;
+
+                match win_result {
+                    Ok((batch_result, hive_pathbuf)) => {
+                        match batch_result {
+                            Ok(results) => {
+                                for result in results {
+                                    match result {
+                                        Ok(_) => applied += 1,
+                                        Err(e) => {
+                                            failed += 1;
+                                            errors.push(e);
+                                        }
+                                    }
                                 }
+                            }
+                            Err(e) => {
+                                failed += win_proposals.len() as u32;
+                                errors.push(e);
+                            }
+                        }
+
+                        // Re-parse the Windows hive to get refreshed data
+                        match hive_parse::extract_hive_data(&hive_pathbuf).await {
+                            Ok(data) => refreshed_windows = Some(data),
+                            Err(e) => {
+                                errors.push(format!(
+                                    "Warning: Windows changes applied but re-read failed: {}",
+                                    e
+                                ));
                             }
                         }
                     }
                     Err(e) => {
-                        // Hive open, backup, or commit failed — all Windows ops failed
                         failed += win_proposals.len() as u32;
-                        errors.push(e);
-                    }
-                }
-
-                // Re-parse the Windows hive to get refreshed data
-                let hive_pathbuf = Path::new(path).to_path_buf();
-                match tokio::runtime::Handle::current()
-                    .block_on(hive_parse::extract_hive_data(&hive_pathbuf))
-                {
-                    Ok(data) => refreshed_windows = Some(data),
-                    Err(e) => {
-                        errors.push(format!("Warning: Windows changes applied but re-read failed: {}", e));
+                        errors.push(format!("Windows sync task panicked: {}", e));
                     }
                 }
             }
@@ -99,9 +119,9 @@ pub fn apply_all_proposals(
         }
     }
 
-    // Batch Linux operations: single elevated invocation (one password prompt)
+    // Batch Linux operations via persistent worker
     if !lin_proposals.is_empty() {
-        match linux_writer::batch_linux_operations(&lin_proposals) {
+        match linux_writer::batch_linux_operations(&lin_proposals).await {
             Ok(batch_result) => {
                 applied += batch_result.applied;
                 failed += batch_result.failed;
