@@ -1,4 +1,4 @@
-# Bluetooth Key Sync GUI — Architecture Reference
+# Bluetooth Key Sync GUI - Architecture Reference
 
 ## What This Project Does
 
@@ -13,14 +13,14 @@ A Tauri v2 desktop app that synchronizes Bluetooth pairing keys between Windows 
 | Canvas   | @xyflow/svelte (node graph)         | 1.1.x   |
 | Backend  | Tauri 2, Rust, Tokio                | 2.5.x   |
 | RPC      | taurpc + specta (typed IPC)         | 0.5.1 / 2.0.0-rc.22 |
-| Package  | pnpm (frontend), Cargo workspace (backend) | — |
+| Package  | pnpm (frontend), Cargo workspace (backend) | - |
 
 ## Directory Structure
 
 ```
 ├── src/                          # SvelteKit frontend
 │   ├── routes/
-│   │   ├── +page.svelte          # Home — 3-step setup wizard
+│   │   ├── +page.svelte          # Home - 3-step setup wizard
 │   │   ├── ConfigWindows.svelte  # Step 1: select Windows SYSTEM hive
 │   │   ├── ConfigLinux.svelte    # Step 2: elevate & scan Linux BT config
 │   │   └── sync/
@@ -48,9 +48,9 @@ A Tauri v2 desktop app that synchronizes Bluetooth pairing keys between Windows 
 │   │   └── api/
 │   │       ├── mod.rs            # taurpc router setup
 │   │       ├── message.rs        # Message<T> response envelope (Success/Error)
-│   │       ├── windows_api.rs    # parse_windows_hive() — reads SYSTEM hive
-│   │       ├── linux_api.rs      # parse_local_config() — spawns elevated scanner
-│   │       └── sync_api.rs       # apply_sync_proposals() — STUB, not yet implemented
+│   │       ├── windows_api.rs    # parse_windows_hive() - reads SYSTEM hive
+│   │       ├── linux_api.rs      # parse_local_config() - spawns elevated scanner
+│   │       └── sync_api.rs       # apply_sync_proposals() - STUB, not yet implemented
 │   │
 │   ├── bluetooth_model/          # Shared data model crate
 │   │   └── src/bluetooth_data.rs # BluetoothData, Controller, Device, LinkKey, LEKey
@@ -114,7 +114,7 @@ Windows SYSTEM hive file
 
 ### RPC Layer
 
-Frontend communicates with backend via **taurpc** — a typed RPC layer that auto-generates TypeScript bindings from Rust trait definitions via **specta**.
+Frontend communicates with backend via **taurpc** - a typed RPC layer that auto-generates TypeScript bindings from Rust trait definitions via **specta**.
 
 - Rust: `#[taurpc::procedures]` traits in `api/*.rs`
 - Generated: `bindings.ts` at project root
@@ -122,8 +122,8 @@ Frontend communicates with backend via **taurpc** — a typed RPC layer that aut
 
 ### State Management
 
-- **`windowsState`** — Persistent (tauri-store), saves last selected Windows directory/file path
-- **`btStore`** — Non-persistent (intentionally), holds parsed BluetoothData for both OSes. Keys are sensitive and cleared on exit.
+- **`windowsState`** - Persistent (tauri-store), saves last selected Windows directory/file path
+- **`btStore`** - Non-persistent (intentionally), holds parsed BluetoothData for both OSes. Keys are sensitive and cleared on exit.
 
 ## Current Development Status
 
@@ -135,6 +135,6 @@ Frontend communicates with backend via **taurpc** — a typed RPC layer that aut
 - Change request / sync proposal generation UI
 
 **Not yet implemented:**
-- `sync_api.rs` — actual key writing logic is a stub
+- `sync_api.rs` - actual key writing logic is a stub
 - Key format conversion between Windows ↔ Linux
 - Rolling MAC address handling

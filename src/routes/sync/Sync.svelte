@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { btStore } from '@/state';
+	import { appSettings, btStore } from '@/state';
 	import {
 		matchAllDevices,
 		initSelections,
@@ -19,6 +19,7 @@
 	import { Download, RefreshCw, CheckCircle } from 'lucide-svelte';
 	import { rpc } from '@/api';
 	import { osColor } from '@/components/bluetooth/syncing/os-theme';
+	import { openUrl } from '@tauri-apps/plugin-opener';
 
 	let isRefreshing = $state(false);
 
@@ -27,7 +28,7 @@
 		isRefreshing = true;
 		try {
 			const [response] = await Promise.all([
-				rpc.linux.parse_local_config(),
+				rpc.linux.parse_local_config(appSettings.state.authMethod),
 				new Promise((r) => setTimeout(r, 500))
 			]);
 			if (response.type === 'Success') {
@@ -299,6 +300,12 @@
 				ontoggledelete={handleToggleDelete}
 			/>
 		</div>
+
+		<!-- Credits -->
+		<footer class="credits">
+			<p>BluetoothKeySync by <button class="credit-link" onclick={() => openUrl('https://jmw.nz')}>Jasper M-W</button></p>
+			<p>Open source on <button class="credit-link" onclick={() => openUrl('https://github.com/Fallstop/BluetoothKeySyncGUI')}>GitHub</button></p>
+		</footer>
 	</div>
 
 	<!-- Toast notification -->
@@ -422,6 +429,35 @@
 	@keyframes refresh-sweep {
 		0% { transform: translateX(-100%); }
 		100% { transform: translateX(400%); }
+	}
+
+	/* Credits */
+	.credits {
+		margin-top: 3rem;
+		padding: 1.5rem 0 0.5rem;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		text-align: center;
+	}
+
+	.credits p {
+		margin: 0.25rem 0;
+		font-size: 12px;
+		color: rgba(250, 250, 250, 0.25);
+	}
+
+	.credit-link {
+		color: rgba(250, 250, 250, 0.4);
+		background: none;
+		border: none;
+		padding: 0;
+		font: inherit;
+		cursor: pointer;
+		text-decoration: none;
+		transition: color 0.15s;
+	}
+
+	.credit-link:hover {
+		color: rgba(250, 250, 250, 0.7);
 	}
 
 	/* Toast */

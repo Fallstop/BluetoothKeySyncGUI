@@ -193,8 +193,8 @@ export function compareLeData(
 	const linPeripheralLtk = linuxLe?.peripheral_long_term_key ?? null;
 
 	// Cross-role: one side has LTK only, other has Peripheral LTK only.
-	// Windows BTHPORT doesn't distinguish roles — always stores as LTK.
-	// Linux BlueZ does — peripherals use [PeripheralLongTermKey].
+	// Windows BTHPORT doesn't distinguish roles - always stores as LTK.
+	// Linux BlueZ does - peripherals use [PeripheralLongTermKey].
 	// Compare them against each other as one effective "Long Term Key".
 	const isCrossRole =
 		(winLtk && !winPeripheralLtk && !linLtk && linPeripheralLtk) ||

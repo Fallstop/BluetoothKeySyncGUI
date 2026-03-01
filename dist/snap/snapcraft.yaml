@@ -49,8 +49,8 @@ parts:
 
       # Install desktop file with correct app ID
       mkdir -p $CRAFT_PRIME/meta/gui
-      cp ${CRAFT_PART_SRC}/../../../nz.jmw.bluetooth-key-sync.desktop $CRAFT_PRIME/meta/gui/bluetooth-key-sync.desktop
+      cp $CRAFT_PROJECT_DIR/nz.jmw.bluetooth-key-sync.desktop $CRAFT_PRIME/meta/gui/bluetooth-key-sync.desktop
 
       # Install icon
       mkdir -p $CRAFT_PRIME/meta/gui/icons/scalable/apps
-      cp ${CRAFT_PART_SRC}/../../../logo.svg $CRAFT_PRIME/meta/gui/icons/scalable/apps/nz.jmw.bluetooth-key-sync.svg
+      cp $CRAFT_PROJECT_DIR/logo.svg $CRAFT_PRIME/meta/gui/icons/scalable/apps/nz.jmw.bluetooth-key-sync.svg

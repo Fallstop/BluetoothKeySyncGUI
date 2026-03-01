@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { open } from '@tauri-apps/plugin-dialog';
 	import { rpc } from '@/api';
-	import { btStore, windowsState } from '@/state';
+	import { appSettings, btStore, windowsState } from '@/state';
 
 	let windowsLoading = $state(false);
 	let linuxLoading = $state(false);
@@ -56,7 +56,7 @@
 		linuxLoading = true;
 		linuxError = null;
 		try {
-			const response = await rpc.linux.parse_local_config();
+			const response = await rpc.linux.parse_local_config(appSettings.state.authMethod);
 			if (response.type === 'Error') {
 				linuxError = response.data;
 				return;
@@ -67,6 +67,16 @@
 		} finally {
 			linuxLoading = false;
 		}
+	}
+
+	async function onCancelLinuxAccess() {
+		try {
+			await rpc.linux.cancel_linux_access();
+		} catch {
+			// ignore cancellation errors
+		}
+		linuxLoading = false;
+		linuxError = 'Cancelled';
 	}
 
 	function onContinueToSync() {
@@ -91,6 +101,7 @@
 	{onSelectWindowsDir}
 	{onSelectWindowsHive}
 	{onGrantLinuxAccess}
+	{onCancelLinuxAccess}
 	{onContinueToSync}
 	{onClearWindows}
 	{onClearLinux}
@@ -98,4 +109,5 @@
 	{linuxLoading}
 	{windowsError}
 	{linuxError}
+	bind:authMethod={appSettings.state.authMethod}
 />

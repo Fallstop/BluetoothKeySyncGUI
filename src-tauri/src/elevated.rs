@@ -136,7 +136,6 @@ pub fn run_elevated(program: &PathBuf, args: &[&str]) -> Result<std::process::Ou
 
     // Fallback to pkexec (works on X11 / traditional polkit setups)
     StdCommand::new("pkexec")
-        .arg("--")
         .arg(program)
         .args(args)
         .output()

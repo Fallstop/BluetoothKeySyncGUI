@@ -138,7 +138,7 @@
 />
 
 <div class="pair-row" style="--border-color: {borderColor}; --border-style: {borderStyle}" bind:this={rowEl}>
-	<!-- Main row: Win card — direction — Lin card -->
+	<!-- Main row: Win card - direction - Lin card -->
 	<div class="row-main">
 		<!-- Windows device mini-card -->
 		<PairSideMiniCard

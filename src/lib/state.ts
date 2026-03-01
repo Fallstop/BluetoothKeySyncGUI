@@ -2,6 +2,21 @@ import { RuneStore, type State } from '@tauri-store/svelte';
 import type { BluetoothData, HostDistributions } from '#root/bindings';
 import { SvelteMap } from 'svelte/reactivity';
 
+export type AuthMethod = 'pkexec' | 'sudo_askpass';
+
+interface AppSettings extends State {
+	authMethod: AuthMethod;
+}
+
+export const appSettings = new RuneStore<AppSettings>('appSettings', {
+	authMethod: 'pkexec',
+}, {
+	autoStart: true,
+	saveOnChange: true,
+	saveStrategy: 'debounce',
+	saveInterval: 500,
+});
+
 interface WindowsState extends State {
 	lastWindowsDirectory: string | null;
 	lastWindowsHiveFile: string | null;

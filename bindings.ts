@@ -32,8 +32,9 @@ export type SyncRequest = { proposals: SyncProposal[]; windows_hive_path: string
 
 export type SyncResult = { success: boolean; applied_count: number; failed_count: number; errors: string[]; refreshed_linux: BluetoothData | null; refreshed_windows: BluetoothData | null }
 
-const ARGS_MAP = { 'linux':'{"parse_local_config":[]}', 'sync':'{"apply_sync_proposals":["request"]}', 'windows':'{"parse_windows_hive":["path_str"]}' }
-export type Router = { "linux": {parse_local_config: () => Promise<Message<BluetoothData>>},
+const ARGS_MAP = { 'linux':'{"cancel_linux_access":[],"parse_local_config":["auth_method"]}', 'sync':'{"apply_sync_proposals":["request"]}', 'windows':'{"parse_windows_hive":["path_str"]}' }
+export type Router = { "linux": {cancel_linux_access: () => Promise<Message<null>>, 
+parse_local_config: (authMethod: string) => Promise<Message<BluetoothData>>},
 "sync": {apply_sync_proposals: (request: SyncRequest) => Promise<Message<SyncResult>>},
 "windows": {parse_windows_hive: (pathStr: string) => Promise<Message<BluetoothData>>} };
 

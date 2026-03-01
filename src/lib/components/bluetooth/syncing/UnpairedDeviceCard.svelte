@@ -110,7 +110,7 @@
 	</div>
 	{#if markedForDeletion}
 		<div class="status-banner status-delete">
-			Will be deleted — click to undo
+			Will be deleted - click to undo
 		</div>
 	{:else if isDragOver}
 		<div class="status-banner status-pair">
