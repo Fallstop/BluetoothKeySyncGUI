@@ -31,3 +31,5 @@ dist/flatpak/nz.jmw.bluetooth-key-sync.metainfo.xml
 dist/snap/bluetooth-key-sync.deb
 dist/snap/logo.svg
 dist/snap/nz.jmw.bluetooth-key-sync.desktop
+
+.claude/
