@@ -94,10 +94,7 @@
 		<!-- Header -->
 		<div class="gf-header">
 			<div class="logo-mark">
-				<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-					<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
-					<path d="M8 12l2-4 2 4 2-4 2 4" />
-				</svg>
+				<img src="/logo.svg" alt="BT Key Sync" width="36" height="36" />
 			</div>
 			<h1 class="gf-title">BT Key Sync</h1>
 			<p class="gf-tagline">Sync Bluetooth pairing keys between Windows & Linux</p>
@@ -355,7 +352,6 @@
 		border-radius: 12px;
 		background: rgba(255, 255, 255, 0.05);
 		border: 1px solid rgba(255, 255, 255, 0.08);
-		color: #a78bfa;
 		margin-bottom: 1.25rem;
 	}
 
