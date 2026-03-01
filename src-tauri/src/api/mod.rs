@@ -9,10 +9,8 @@ use tauri::Runtime;
 use taurpc::Router;
 
 pub fn init<R: Runtime>() -> Router<R> {
-    let router = Router::new()
+    Router::new()
         .merge(windows_api::WindowsImpl.into_handler())
         .merge(linux_api::LinuxApiImpl.into_handler())
-        .merge(sync_api::SyncApiImpl.into_handler());
-
-    return router;
+        .merge(sync_api::SyncApiImpl.into_handler())
 }

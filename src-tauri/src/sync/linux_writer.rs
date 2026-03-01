@@ -24,11 +24,12 @@ pub async fn batch_linux_operations(
         let op = match proposal {
             SyncProposal::CopyKeys {
                 source_device,
+                target_device,
                 target_controller_address,
                 ..
             } => {
                 let controller_addr = mac_to_colon_format(target_controller_address);
-                let device_addr = mac_to_colon_format(&source_device.address.to_string());
+                let device_addr = mac_to_colon_format(&target_device.address.to_string());
                 let json = serde_json::to_string(source_device)
                     .map_err(|e| format!("Failed to serialize device: {}", e))?;
                 WorkerOperation::WriteKeys {

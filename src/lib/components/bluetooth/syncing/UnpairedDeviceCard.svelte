@@ -1,8 +1,9 @@
 <script lang="ts">
 	import type { UnmatchedDevice } from './matching';
-	import { Link, Trash2 } from 'lucide-svelte';
+	import { Link, Trash2, Info } from 'lucide-svelte';
 	import { osColor } from './os-theme';
 	import KeyIndicators from './KeyIndicators.svelte';
+	import DeviceDetailsDialog from './DeviceDetailsDialog.svelte';
 
 	let {
 		device: unmatchedDevice,
@@ -26,11 +27,32 @@
 		ondelete?: () => void;
 	} = $props();
 
-	function handleDeleteClick(e: MouseEvent) {
+	let detailsOpen = $state(false);
+
+	function handleDeleteClick(e: MouseEvent | KeyboardEvent) {
 		e.stopPropagation();
 		ondelete?.();
 	}
+
+	function handleDetailsClick(e: MouseEvent | KeyboardEvent) {
+		e.stopPropagation();
+		detailsOpen = true;
+	}
+
+	function onKeyActivate(handler: (e: KeyboardEvent) => void) {
+		return (e: KeyboardEvent) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				handler(e);
+			}
+		};
+	}
 </script>
+
+<DeviceDetailsDialog
+	bind:open={detailsOpen}
+	data={{ mode: 'single', device: unmatchedDevice.device, os: unmatchedDevice.os, controllerAddress: unmatchedDevice.controllerAddress }}
+/>
 
 <button
 	class="card"
@@ -39,7 +61,7 @@
 	class:card-target={!markedForDeletion && !selected && isTarget}
 	class:card-drag-over={!markedForDeletion && isDragOver}
 	class:card-dimmed={!markedForDeletion && !selected && !isTarget && selectionActive}
-	style="--os-border: {osColor(unmatchedDevice.os).borderColor}"
+	style="--os-border: {osColor(unmatchedDevice.os).borderColor}; --os-gradient: {osColor(unmatchedDevice.os).accentGradient}"
 	data-unpaired-device
 	data-unpaired-os={unmatchedDevice.os}
 	data-unpaired-key="{unmatchedDevice.controllerAddress}/{unmatchedDevice.device.address}"
@@ -58,34 +80,49 @@
 				<KeyIndicators device={unmatchedDevice.device} />
 			</div>
 		</div>
-		{#if ondelete}
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<!-- These use role="button" (not <button>) because they're nested inside the parent <button class="card">.
+			 HTML forbids <button> inside <button>. -->
+		<div class="card-actions">
 			<div
-				class="delete-btn"
-				class:delete-active={markedForDeletion}
-				onclick={handleDeleteClick}
-				title={markedForDeletion ? 'Undo deletion' : 'Mark for deletion'}
+				class="icon-btn details-btn"
+				role="button"
+				tabindex="-1"
+				onclick={handleDetailsClick}
+				onkeydown={onKeyActivate(handleDetailsClick)}
+				title="View device details"
 			>
-				<Trash2 class="h-3.5 w-3.5" />
+				<Info class="h-3.5 w-3.5" />
 			</div>
-		{/if}
+			{#if ondelete}
+				<div
+					class="icon-btn delete-btn"
+					class:delete-active={markedForDeletion}
+					role="button"
+					tabindex="-1"
+					onclick={handleDeleteClick}
+					onkeydown={onKeyActivate(handleDeleteClick)}
+					title={markedForDeletion ? 'Undo deletion' : 'Mark for deletion'}
+				>
+					<Trash2 class="h-3.5 w-3.5" />
+				</div>
+			{/if}
+		</div>
 	</div>
 	{#if markedForDeletion}
-		<div class="status-text status-delete">
+		<div class="status-banner status-delete">
 			Will be deleted — click to undo
 		</div>
 	{:else if isDragOver}
-		<div class="status-text status-pair">
+		<div class="status-banner status-pair">
 			<Link class="h-3 w-3" />
 			Drop to pair
 		</div>
 	{:else if selected}
-		<div class="status-text status-pair">
+		<div class="status-banner status-pair">
 			Click a device on the other side to pair
 		</div>
 	{:else if isTarget}
-		<div class="status-text status-pair">
+		<div class="status-banner status-pair">
 			<Link class="h-3 w-3" />
 			Click to pair
 		</div>
@@ -97,17 +134,18 @@
 		width: 100%;
 		text-align: left;
 		border-radius: 10px;
-		border-left: 3px solid var(--os-border);
+		border-left: 2.5px solid var(--os-border);
 		border-top: 1px solid rgba(255, 255, 255, 0.06);
 		border-right: 1px solid rgba(255, 255, 255, 0.06);
 		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 		background: rgba(255, 255, 255, 0.02);
 		color: #fafafa;
-		padding: 10px 12px;
+		padding: 12px 14px;
 		cursor: grab;
 		transition: all 0.2s;
 		position: relative;
 		font-family: inherit;
+		overflow: hidden;
 	}
 
 	.card:active {
@@ -130,6 +168,7 @@
 		border-color: rgba(167, 139, 250, 0.4);
 		border-left-color: var(--os-border);
 		box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.2);
+		background: linear-gradient(135deg, rgba(167, 139, 250, 0.06) 0%, transparent 60%);
 	}
 
 	.card.card-target {
@@ -182,9 +221,9 @@
 
 	.device-mac {
 		font-size: 11px;
-		font-family: monospace;
+		font-family: ui-monospace, monospace;
 		color: rgba(250, 250, 250, 0.35);
-		margin-top: 1px;
+		margin-top: 2px;
 	}
 
 	.device-mac.name-deleted {
@@ -193,15 +232,36 @@
 	}
 
 	.indicator-row {
-		margin-top: 2px;
+		margin-top: 6px;
+	}
+
+	.card-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		flex-shrink: 0;
+	}
+
+	.icon-btn {
+		padding: 4px;
+		border-radius: 4px;
+		transition: color 0.2s;
+	}
+
+	.details-btn {
+		color: rgba(250, 250, 250, 0.12);
+	}
+
+	.card:hover .details-btn {
+		color: rgba(250, 250, 250, 0.3);
+	}
+
+	.card:hover .details-btn:hover {
+		color: rgba(250, 250, 250, 0.7);
 	}
 
 	.delete-btn {
-		flex-shrink: 0;
-		padding: 4px;
-		border-radius: 4px;
-		color: rgba(250, 250, 250, 0);
-		transition: color 0.2s;
+		color: rgba(250, 250, 250, 0.12);
 	}
 
 	.card:hover .delete-btn {
@@ -220,20 +280,23 @@
 		color: rgba(239, 68, 68, 0.7);
 	}
 
-	.status-text {
-		margin-top: 6px;
+	.status-banner {
+		margin: 8px -14px -12px -14px;
+		padding: 6px 14px;
 		font-size: 12px;
 		font-weight: 500;
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		gap: 5px;
 	}
 
 	.status-delete {
+		background: rgba(239, 68, 68, 0.08);
 		color: #ef4444;
 	}
 
 	.status-pair {
+		background: rgba(167, 139, 250, 0.08);
 		color: #a78bfa;
 	}
 </style>

@@ -54,7 +54,7 @@ impl ElevatedWorker {
     async fn ensure_running(&self) -> Result<(), String> {
         let mut inner = self.inner.lock().await;
         match &inner.state {
-            WorkerState::Ready => return Ok(()),
+            WorkerState::Ready => Ok(()),
             WorkerState::NotStarted | WorkerState::Dead => {
                 self.spawn_locked(&mut inner).await?;
                 Ok(())

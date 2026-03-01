@@ -40,7 +40,7 @@
 	class:drag-source={isDragSource}
 	class:drag-target={isDragTarget}
 	class:can-drag={canDrag}
-	style="--os-border: {colors.borderColor}; --os-ring: {colors.ringColor}; --os-ring-hover: {colors.ringHoverColor}"
+	style="--os-border: {colors.borderColor}; --os-ring: {colors.ringColor}; --os-ring-hover: {colors.ringHoverColor}; --os-gradient: {colors.accentGradient}"
 	{onpointerdown}
 	{onpointermove}
 	{onpointerup}
@@ -62,19 +62,21 @@
 	.mini-card {
 		flex: 1;
 		min-width: 0;
-		border-radius: 8px;
+		border-radius: 10px;
 		background: rgba(255, 255, 255, 0.03);
 		border: 1px solid rgba(255, 255, 255, 0.06);
-		padding: 8px 12px;
+		padding: 10px 14px;
 		transition: all 0.2s;
+		position: relative;
+		overflow: hidden;
 	}
 
 	.mini-card.side-left {
-		border-left: 3px solid var(--os-border);
+		border-left: 2.5px solid var(--os-border);
 	}
 
 	.mini-card.side-right {
-		border-right: 3px solid var(--os-border);
+		border-right: 2.5px solid var(--os-border);
 	}
 
 	.mini-card.can-drag {
@@ -87,10 +89,12 @@
 
 	.mini-card.drag-source {
 		box-shadow: 0 0 0 2px var(--os-ring);
+		transform: scale(0.98);
 	}
 
 	.mini-card.drag-target {
 		box-shadow: 0 0 0 2px var(--os-ring-hover);
+		transform: scale(1.02);
 	}
 
 	.device-name {
@@ -108,9 +112,9 @@
 
 	.device-mac {
 		font-size: 11px;
-		font-family: monospace;
+		font-family: ui-monospace, monospace;
 		color: rgba(250, 250, 250, 0.35);
-		margin-top: 1px;
+		margin-top: 2px;
 	}
 
 	.device-mac.text-right {
@@ -118,6 +122,6 @@
 	}
 
 	.indicator-row {
-		margin-top: 2px;
+		margin-top: 6px;
 	}
 </style>

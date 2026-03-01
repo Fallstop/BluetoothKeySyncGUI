@@ -29,9 +29,9 @@ pub fn run() {
             if let tauri::WindowEvent::Destroyed = event {
                 // Shut down the elevated worker when the app closes
                 let worker = elevated_worker::get_worker();
-                // Use a blocking approach since we're in a sync callback
+                // Block on shutdown so the worker process is cleaned up before exit
                 let rt = tokio::runtime::Handle::current();
-                rt.spawn(async move {
+                rt.block_on(async move {
                     worker.shutdown().await;
                 });
             }

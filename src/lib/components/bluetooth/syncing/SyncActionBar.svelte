@@ -16,7 +16,7 @@
 		deviceKey
 	} from './matching';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import { ArrowRight, Check, X, Loader2, AlertTriangle, Trash2 } from 'lucide-svelte';
+	import { ArrowRight, Check, X, Loader2, AlertTriangle, Trash2, CheckCircle } from 'lucide-svelte';
 	import { rpc } from '$lib/api';
 	import { osColor } from './os-theme';
 	import { windowsState, btStore } from '@/state';
@@ -58,22 +58,6 @@
 	);
 
 	let deleteCount = $derived(deletions.size);
-
-	// Count matched pairs that still need a direction picked
-	let actionableNeedsDirection = $derived.by(() => {
-		let count = 0;
-		for (const pair of matchResult.needsSync) {
-			const key = pairKey(pair.controllerAddress, pair.windowsDevice.address);
-			const sel = selections.get(key);
-			if (sel && sel.direction === null) count++;
-		}
-		for (const m of manualMatches) {
-			const key = manualPairKey(m.id);
-			const sel = selections.get(key);
-			if (sel && sel.direction === null) count++;
-		}
-		return count;
-	});
 
 	// Build list of pairs that have a direction selected for review
 	let selectedPairs = $derived.by(() => {
@@ -145,7 +129,6 @@
 				}
 
 				// Clear stale manual matches, deletions, and dismissed pairs
-				// so synced devices don't appear as duplicates
 				onsynccomplete?.();
 			} else {
 				applyResult = { success: false, message: result.data };
@@ -166,20 +149,14 @@
 		<div class="action-bar-inner">
 			<div class="status-group">
 				{#if readyCount > 0}
-					<span class="status-ready">
+					<span class="status-chip status-chip-ready">
 						{readyCount} sync{readyCount !== 1 ? 's' : ''} ready
 					</span>
 				{/if}
 				{#if deleteCount > 0}
-					<span class="status-delete">
-						<Trash2 class="h-3.5 w-3.5" />
+					<span class="status-chip status-chip-delete">
+						<Trash2 class="h-3 w-3" />
 						{deleteCount} to delete
-					</span>
-				{/if}
-				{#if actionableNeedsDirection > 0}
-					<span class="status-warning">
-						<AlertTriangle class="h-3.5 w-3.5" />
-						{actionableNeedsDirection} need{actionableNeedsDirection !== 1 ? '' : 's'} direction
 					</span>
 				{/if}
 			</div>
@@ -217,7 +194,6 @@
 								{:else}
 									{readyCount} device{readyCount !== 1 ? 's' : ''} will be synced.
 								{/if}
-								Review the changes below before applying.
 							</Dialog.Description>
 						</Dialog.Header>
 
@@ -229,27 +205,40 @@
 								{@const targetOs = direction === 'win_to_linux' ? 'Linux' : 'Windows'}
 								<div class="review-card">
 									<div class="review-card-header">
-										<span class="review-device-name">
-											{pair.windowsDevice.name ?? pair.linuxDevice.name ?? 'Unknown'}
-										</span>
+										<div class="review-name-group">
+											<span class="review-device-name">
+												{pair.windowsDevice.name ?? pair.linuxDevice.name ?? 'Unknown'}
+											</span>
+											{#if pair.windowsDevice.device_type}
+												<span class="review-type-badge">{pair.windowsDevice.device_type}</span>
+											{/if}
+										</div>
 										<div class="review-direction">
-											<span class="os-badge" style="background: {osColor(sourceOs).badgeBg}; color: {osColor(sourceOs).badgeColor}">
+											<span class="os-pill" style="background: {osColor(sourceOs).pillBg}; border-color: {osColor(sourceOs).pillBorder}; color: {osColor(sourceOs).pillText}">
 												{sourceOs}
 											</span>
 											<ArrowRight class="h-3 w-3" style="color: rgba(250,250,250,0.3)" />
-											<span class="os-badge" style="background: {osColor(targetOs).badgeBg}; color: {osColor(targetOs).badgeColor}">
+											<span class="os-pill" style="background: {osColor(targetOs).pillBg}; border-color: {osColor(targetOs).pillBorder}; color: {osColor(targetOs).pillText}">
 												{targetOs}
 											</span>
 										</div>
 									</div>
 									<div class="review-addresses">
-										<span>Win: {pair.windowsDevice.address}</span>
-										<span>Lin: {pair.linuxDevice.address}</span>
+										<span class="addr-row">
+											<span class="os-dot" style="background: {osColor('Windows').hex}"></span>
+											{pair.windowsDevice.address}
+										</span>
+										<span class="addr-row">
+											<span class="os-dot" style="background: {osColor('Linux').hex}"></span>
+											{pair.linuxDevice.address}
+										</span>
 									</div>
 									{#if changes.length > 0}
-										<p class="review-keys">
-											Keys: {changes.join(', ')}
-										</p>
+										<div class="review-tags">
+											{#each changes as change}
+												<span class="key-tag">{change}</span>
+											{/each}
+										</div>
 									{/if}
 								</div>
 							{/each}
@@ -264,12 +253,13 @@
 												{device.device.name ?? 'Unknown Device'}
 											</span>
 										</div>
-										<span class="delete-badge">
-											delete
-										</span>
+										<span class="delete-badge">delete</span>
 									</div>
 									<div class="review-addresses">
-										{device.os} &middot; {device.device.address}
+										<span class="addr-row">
+											<span class="os-dot" style="background: {osColor(device.os).hex}"></span>
+											{device.os} &middot; {device.device.address}
+										</span>
 									</div>
 								</div>
 							{/each}
@@ -281,7 +271,12 @@
 								class:result-success={applyResult.success}
 								class:result-error={!applyResult.success}
 							>
-								{applyResult.message}
+								{#if applyResult.success}
+									<CheckCircle class="h-4 w-4 flex-shrink-0" />
+								{:else}
+									<AlertTriangle class="h-4 w-4 flex-shrink-0" />
+								{/if}
+								<span>{applyResult.message}</span>
 							</div>
 						{/if}
 
@@ -319,9 +314,11 @@
 		bottom: 0;
 		width: 100%;
 		padding: 16px;
-		background: rgba(9, 9, 11, 0.85);
+		background: linear-gradient(to top, rgba(9, 9, 11, 0.95), rgba(9, 9, 11, 0.85));
 		backdrop-filter: blur(12px);
-		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		border-top: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 16px 16px 0 0;
+		box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.3);
 		z-index: 10;
 	}
 
@@ -329,33 +326,36 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		max-width: 56rem;
+		max-width: 60rem;
 		margin: 0 auto;
 	}
 
 	.status-group {
 		display: flex;
 		align-items: center;
-		gap: 12px;
-		font-size: 14px;
+		gap: 8px;
 	}
 
-	.status-ready {
-		color: rgba(250, 250, 250, 0.45);
+	.status-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		font-size: 12px;
+		font-weight: 500;
+		padding: 4px 10px;
+		border-radius: 8px;
 	}
 
-	.status-delete {
+	.status-chip-ready {
+		background: rgba(34, 197, 94, 0.1);
+		color: #4ade80;
+		border: 1px solid rgba(34, 197, 94, 0.2);
+	}
+
+	.status-chip-delete {
+		background: rgba(239, 68, 68, 0.1);
 		color: #ef4444;
-		display: flex;
-		align-items: center;
-		gap: 4px;
-	}
-
-	.status-warning {
-		color: #f59e0b;
-		display: flex;
-		align-items: center;
-		gap: 4px;
+		border: 1px solid rgba(239, 68, 68, 0.2);
 	}
 
 	/* Review list */
@@ -374,7 +374,7 @@
 		background: rgba(255, 255, 255, 0.02);
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: 8px;
 	}
 
 	.review-card-delete {
@@ -385,6 +385,14 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		gap: 8px;
+	}
+
+	.review-name-group {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-width: 0;
 	}
 
 	.review-device-name {
@@ -393,18 +401,30 @@
 		color: rgba(250, 250, 250, 0.85);
 	}
 
+	.review-type-badge {
+		font-size: 10px;
+		font-weight: 500;
+		padding: 1px 6px;
+		border-radius: 4px;
+		background: rgba(255, 255, 255, 0.06);
+		color: rgba(250, 250, 250, 0.4);
+		white-space: nowrap;
+	}
+
 	.review-direction {
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		font-size: 12px;
+		flex-shrink: 0;
 	}
 
-	.os-badge {
+	.os-pill {
+		display: inline-block;
 		padding: 2px 8px;
-		border-radius: 4px;
-		font-size: 12px;
-		font-weight: 500;
+		border-radius: 6px;
+		border: 1px solid;
+		font-size: 11px;
+		font-weight: 600;
 	}
 
 	.review-delete-label {
@@ -414,25 +434,51 @@
 	}
 
 	.delete-badge {
-		font-size: 12px;
+		font-size: 11px;
+		font-weight: 500;
 		padding: 2px 8px;
-		border-radius: 4px;
+		border-radius: 6px;
 		background: rgba(239, 68, 68, 0.1);
 		color: #ef4444;
+		border: 1px solid rgba(239, 68, 68, 0.2);
 	}
 
 	.review-addresses {
 		display: flex;
-		gap: 12px;
+		flex-direction: column;
+		gap: 3px;
 		font-size: 12px;
 		color: rgba(250, 250, 250, 0.35);
 		font-family: ui-monospace, monospace;
 	}
 
-	.review-keys {
-		font-size: 12px;
-		color: rgba(250, 250, 250, 0.35);
-		margin: 0;
+	.addr-row {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.os-dot {
+		width: 5px;
+		height: 5px;
+		border-radius: 50%;
+		flex-shrink: 0;
+	}
+
+	.review-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+
+	.key-tag {
+		font-size: 10px;
+		font-weight: 500;
+		padding: 2px 7px;
+		border-radius: 5px;
+		background: rgba(167, 139, 250, 0.08);
+		color: rgba(167, 139, 250, 0.7);
+		border: 1px solid rgba(167, 139, 250, 0.12);
 	}
 
 	/* Result alert */
@@ -441,6 +487,9 @@
 		padding: 12px;
 		font-size: 14px;
 		margin-top: 8px;
+		display: flex;
+		align-items: center;
+		gap: 8px;
 	}
 
 	.result-success {
@@ -454,5 +503,4 @@
 		border: 1px solid rgba(239, 68, 68, 0.2);
 		color: #fca5a5;
 	}
-
 </style>

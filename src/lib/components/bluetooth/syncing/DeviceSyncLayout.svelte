@@ -11,6 +11,7 @@
 	import UnpairedDeviceCard from './UnpairedDeviceCard.svelte';
 	import DragOverlay from './DragOverlay.svelte';
 	import { osColor } from './os-theme';
+	import { Info } from 'lucide-svelte';
 
 	let {
 		matchResult,
@@ -104,6 +105,7 @@
 	let hasUnpaired = $derived(unpairedDevices.length > 0);
 	let hasSynced = $derived(matchResult.alreadySynced.length > 0);
 	let hasMatchedSection = $derived(hasSynced || hasNeedsSync || hasManualPairs);
+	let matchedCount = $derived(matchResult.alreadySynced.length + matchResult.needsSync.length + manualMatches.length);
 
 	// Cursor management during drag
 	$effect(() => {
@@ -254,10 +256,13 @@
 	<!-- Matched Devices -->
 	{#if hasMatchedSection}
 		<div class="section-panel">
-			<h3 class="section-title">Matched Devices</h3>
+			<div class="section-header">
+				<h3 class="section-heading">Matched Devices</h3>
+				<span class="count-badge">{matchedCount}</span>
+			</div>
 			<div class="matched-col-headers">
-				<span class="matched-col-header" style="color: {osColor('Windows').textColor}">Windows</span>
-				<span class="matched-col-header" style="color: {osColor('Linux').textColor}">Linux</span>
+				<span class="col-pill" style="background: {osColor('Windows').pillBg}; border-color: {osColor('Windows').pillBorder}; color: {osColor('Windows').pillText}">Windows</span>
+				<span class="col-pill" style="background: {osColor('Linux').pillBg}; border-color: {osColor('Linux').pillBorder}; color: {osColor('Linux').pillText}">Linux</span>
 			</div>
 			<div class="section-list">
 				{#each matchResult.alreadySynced as pair (pairKey(pair.controllerAddress, pair.windowsDevice.address))}
@@ -294,17 +299,21 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="section-panel" onclick={handleContainerClick}>
-			<h3 class="section-title">Devices</h3>
-			<p class="section-desc">
-				Click or drag a device to one on the other side to pair them.
-			</p>
+			<div class="section-header">
+				<h3 class="section-heading">Unmatched Devices</h3>
+				<span class="count-badge">{unpairedDevices.length}</span>
+			</div>
+			<div class="hint-bar">
+				<Info class="h-3.5 w-3.5 flex-shrink-0" />
+				<span>Click or drag a device to one on the other side to pair them.</span>
+			</div>
 			<div class="device-grid">
 				<!-- Column headers -->
-				<div class="col-header" style="color: {osColor('Windows').textColor}">
-					Windows
+				<div class="col-header-cell">
+					<span class="col-pill" style="background: {osColor('Windows').pillBg}; border-color: {osColor('Windows').pillBorder}; color: {osColor('Windows').pillText}">Windows</span>
 				</div>
-				<div class="col-header" style="color: {osColor('Linux').textColor}">
-					Linux
+				<div class="col-header-cell col-header-right">
+					<span class="col-pill" style="background: {osColor('Linux').pillBg}; border-color: {osColor('Linux').pillBorder}; color: {osColor('Linux').pillText}">Linux</span>
 				</div>
 
 				<!-- Aligned device rows -->
@@ -329,6 +338,8 @@
 								onpointerdown={(e) => handleCardPointerDown(device, e)}
 								ondelete={() => ontoggledelete?.(device)}
 							/>
+						{:else}
+							<div class="empty-slot">No Windows match</div>
 						{/if}
 					</div>
 					<div>
@@ -347,6 +358,8 @@
 								onpointerdown={(e) => handleCardPointerDown(device, e)}
 								ondelete={() => ontoggledelete?.(device)}
 							/>
+						{:else}
+							<div class="empty-slot">No Linux match</div>
 						{/if}
 					</div>
 				{/each}
@@ -373,55 +386,91 @@
 
 	.section-panel {
 		border: 1px solid rgba(255, 255, 255, 0.06);
-		border-radius: 12px;
+		border-radius: 14px;
 		background: rgba(255, 255, 255, 0.015);
-		padding: 16px;
+		backdrop-filter: blur(4px);
+		padding: 20px;
 	}
 
-	.section-title {
-		font-size: 13px;
-		font-weight: 500;
-		color: rgba(250, 250, 250, 0.45);
-		margin: 0 0 12px;
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
+	.section-header {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 14px;
 	}
 
-	.section-desc {
+	.section-heading {
+		font-size: 14px;
+		font-weight: 600;
+		color: rgba(250, 250, 250, 0.9);
+		margin: 0;
+	}
+
+	.count-badge {
+		font-size: 11px;
+		font-weight: 600;
+		padding: 1px 7px;
+		border-radius: 6px;
+		background: rgba(255, 255, 255, 0.06);
+		color: rgba(250, 250, 250, 0.5);
+	}
+
+	.hint-bar {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 8px 12px;
+		border-radius: 8px;
+		background: rgba(167, 139, 250, 0.06);
+		border: 1px solid rgba(167, 139, 250, 0.1);
+		color: rgba(167, 139, 250, 0.7);
 		font-size: 13px;
-		color: rgba(250, 250, 250, 0.35);
-		margin: -4px 0 12px;
+		margin-bottom: 14px;
 	}
 
 	.matched-col-headers {
 		display: flex;
 		justify-content: space-between;
-		padding: 0 12px 6px;
+		padding: 0 14px 8px;
 	}
 
-	.matched-col-header {
-		font-size: 12px;
+	.col-pill {
+		display: inline-block;
+		font-size: 11px;
 		font-weight: 600;
+		padding: 2px 10px;
+		border-radius: 6px;
+		border: 1px solid;
 		letter-spacing: 0.02em;
 	}
 
 	.section-list {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
+		gap: 10px;
 	}
 
 	.device-grid {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: 8px 12px;
+		gap: 10px 16px;
 	}
 
-	.col-header {
-		font-size: 12px;
-		font-weight: 600;
-		letter-spacing: 0.02em;
+	.col-header-cell {
 		padding-bottom: 2px;
+	}
+
+	.col-header-right {
+		text-align: right;
+	}
+
+	.empty-slot {
+		border: 1px dashed rgba(255, 255, 255, 0.08);
+		border-radius: 10px;
+		padding: 16px;
+		text-align: center;
+		font-size: 12px;
+		color: rgba(250, 250, 250, 0.2);
 	}
 
 	.empty-state {

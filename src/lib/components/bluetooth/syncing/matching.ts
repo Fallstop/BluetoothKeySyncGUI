@@ -108,8 +108,8 @@ export type SyncSelections = Map<string, SyncSelection>;
 function compareField(
 	field: string,
 	label: string,
-	windowsValue: string | number | null | undefined,
-	linuxValue: string | number | null | undefined
+	windowsValue: string | number | boolean | null | undefined,
+	linuxValue: string | number | boolean | null | undefined
 ): KeyFieldComparison {
 	const wVal = windowsValue != null ? String(windowsValue) : null;
 	const lVal = linuxValue != null ? String(linuxValue) : null;
@@ -263,13 +263,16 @@ export function matchDevicesForController(
 	}
 
 	const matchedLinuxMacs = new Set<string>();
+	const matchedWinMacs = new Set<string>();
 
+	// Pass 1: Match by MAC address
 	for (const winDev of winDevices) {
 		const mac = winDev.address.toUpperCase();
 		const linDev = linuxByMac.get(mac);
 
 		if (linDev) {
 			matchedLinuxMacs.add(mac);
+			matchedWinMacs.add(mac);
 			const comparison = compareKeys(winDev, linDev);
 			paired.push({
 				windowsDevice: winDev,
@@ -277,7 +280,43 @@ export function matchDevicesForController(
 				controllerAddress,
 				comparison
 			});
-		} else {
+		}
+	}
+
+	// Pass 2: Match remaining unmatched devices by IRK (Identity Resolving Key)
+	// Build IRK -> device map for unmatched Linux LE devices
+	const linuxByIrk = new Map<string, BluetoothDevice>();
+	for (const linDev of linDevices) {
+		if (matchedLinuxMacs.has(linDev.address.toUpperCase())) continue;
+		const irk = linDev.le_data?.identity_resolving_key;
+		if (irk) {
+			linuxByIrk.set(irk.toUpperCase(), linDev);
+		}
+	}
+
+	for (const winDev of winDevices) {
+		if (matchedWinMacs.has(winDev.address.toUpperCase())) continue;
+		const irk = winDev.le_data?.identity_resolving_key;
+		if (irk) {
+			const linDev = linuxByIrk.get(irk.toUpperCase());
+			if (linDev) {
+				matchedWinMacs.add(winDev.address.toUpperCase());
+				matchedLinuxMacs.add(linDev.address.toUpperCase());
+				linuxByIrk.delete(irk.toUpperCase());
+				const comparison = compareKeys(winDev, linDev);
+				paired.push({
+					windowsDevice: winDev,
+					linuxDevice: linDev,
+					controllerAddress,
+					comparison
+				});
+			}
+		}
+	}
+
+	// Collect remaining unmatched devices
+	for (const winDev of winDevices) {
+		if (!matchedWinMacs.has(winDev.address.toUpperCase())) {
 			unmatched.push({ device: winDev, os: 'Windows', controllerAddress });
 		}
 	}
@@ -374,10 +413,11 @@ export function pairKey(controllerAddress: string, deviceAddress: string): strin
 
 export function initSelections(matchResult: MatchResult): SyncSelections {
 	const selections: SyncSelections = new Map();
-	// Pre-populate entries for auto-matched needsSync pairs so they appear in the UI
+	// Pre-populate entries for auto-matched needsSync pairs, defaulting to Windows→Linux
+	// (the overwhelmingly common use case: pair on Windows, sync keys to Linux)
 	for (const pair of matchResult.needsSync) {
 		const key = pairKey(pair.controllerAddress, pair.windowsDevice.address);
-		selections.set(key, { direction: null });
+		selections.set(key, { direction: 'win_to_linux' });
 	}
 	return selections;
 }

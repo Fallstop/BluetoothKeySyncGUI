@@ -18,7 +18,9 @@
 			</button>
 		</div>
 	{/if}
-	{@render children?.()}
+	<div class="page-enter">
+		{@render children?.()}
+	</div>
 </div>
 
 <style lang="css">
@@ -35,5 +37,23 @@
 		padding: 12px 20px;
 		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 		background: rgba(255, 255, 255, 0.02);
+	}
+
+	.page-enter {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		animation: page-fade-in 0.2s ease-out;
+	}
+
+	@keyframes page-fade-in {
+		from {
+			opacity: 0;
+			transform: translateY(4px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
 	}
 </style>

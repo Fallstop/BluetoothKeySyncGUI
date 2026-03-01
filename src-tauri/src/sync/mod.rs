@@ -149,7 +149,7 @@ pub fn validate_hex_key(key: &str) -> Result<(), String> {
     if key.is_empty() {
         return Err("Key is empty".to_string());
     }
-    if key.len() % 2 != 0 {
+    if !key.len().is_multiple_of(2) {
         return Err(format!("Key has odd length: {}", key.len()));
     }
     if !key.chars().all(|c| c.is_ascii_hexdigit()) {

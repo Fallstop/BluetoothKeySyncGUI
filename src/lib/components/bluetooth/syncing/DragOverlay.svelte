@@ -23,6 +23,14 @@
 	} = $props();
 
 	let lineColor = $derived(dragPotential ? osColor(dragPotential.device.os).hex : '#3b82f6');
+
+	function bezierPath(x1: number, y1: number, x2: number, y2: number): string {
+		// Horizontal offset for control points, clamped so the curve never overshoots
+		const dist = Math.abs(x2 - x1);
+		const offset = Math.min(dist * 0.4, 120);
+		const sign = x2 >= x1 ? 1 : -1;
+		return `M ${x1} ${y1} C ${x1 + offset * sign} ${y1}, ${x2 - offset * sign} ${y2}, ${x2} ${y2}`;
+	}
 </script>
 
 <svelte:window {onpointermove} {onpointerup} />
@@ -32,55 +40,53 @@
 		class="fixed inset-0 pointer-events-none"
 		style="width: 100vw; height: 100vh; z-index: 50;"
 	>
-		<defs>
-			<filter id="drag-glow" x="-50%" y="-50%" width="200%" height="200%">
-				<feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
-				<feMerge>
-					<feMergeNode in="blur" />
-					<feMergeNode in="SourceGraphic" />
-				</feMerge>
-			</filter>
-		</defs>
 		{#if dragHoverDevice}
 			{@const targetCenter = getCardCenter(dragHoverDevice)}
-			<line
-				x1={dragStartPos.x}
-				y1={dragStartPos.y}
-				x2={targetCenter.x}
-				y2={targetCenter.y}
+			<path
+				d={bezierPath(dragStartPos.x, dragStartPos.y, targetCenter.x, targetCenter.y)}
+				fill="none"
 				stroke={lineColor}
 				stroke-width="2.5"
-				opacity="0.9"
-				filter="url(#drag-glow)"
+				opacity="0.85"
+				stroke-dasharray="8 4"
+				class="flowing-dash"
 			/>
 			<circle
 				cx={targetCenter.x}
 				cy={targetCenter.y}
 				r="4"
 				fill={lineColor}
-				opacity="0.9"
-				filter="url(#drag-glow)"
+				opacity="0.85"
 			/>
 		{:else}
-			<line
-				x1={dragStartPos.x}
-				y1={dragStartPos.y}
-				x2={dragPos.x}
-				y2={dragPos.y}
+			<path
+				d={bezierPath(dragStartPos.x, dragStartPos.y, dragPos.x, dragPos.y)}
+				fill="none"
 				stroke={lineColor}
 				stroke-width="2"
 				stroke-dasharray="6 3"
-				opacity="0.6"
+				opacity="0.5"
 			/>
-			<circle cx={dragPos.x} cy={dragPos.y} r="3" fill={lineColor} opacity="0.6" />
+			<circle cx={dragPos.x} cy={dragPos.y} r="3" fill={lineColor} opacity="0.5" />
 		{/if}
 		<circle
 			cx={dragStartPos.x}
 			cy={dragStartPos.y}
 			r="4"
 			fill={lineColor}
-			opacity="0.9"
-			filter="url(#drag-glow)"
+			opacity="0.85"
 		/>
 	</svg>
 {/if}
+
+<style>
+	.flowing-dash {
+		animation: dash-flow 0.6s linear infinite;
+	}
+
+	@keyframes dash-flow {
+		to {
+			stroke-dashoffset: -12;
+		}
+	}
+</style>

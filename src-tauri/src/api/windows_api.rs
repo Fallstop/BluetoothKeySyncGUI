@@ -52,16 +52,10 @@ impl WindowsApi for WindowsImpl {
             path.to_path_buf()
         };
 
-        println!("Found final path!");
-
         // Now parse
-        let data = hive_parse::extract_hive_data(&final_path).await;
-        if let Ok(data) = data {
-            return Message::Success(data);
-        } else if let Err(error) = data {
-            return Message::Error(error.to_string());
+        match hive_parse::extract_hive_data(&final_path).await {
+            Ok(data) => Message::Success(data),
+            Err(error) => Message::Error(error.to_string()),
         }
-
-        return Message::Error(String::from(final_path.to_string_lossy()));
     }
 }

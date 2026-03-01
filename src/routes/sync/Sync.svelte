@@ -16,8 +16,9 @@
 	} from '@/components/bluetooth/syncing/matching';
 	import DeviceSyncLayout from '@/components/bluetooth/syncing/DeviceSyncLayout.svelte';
 	import SyncActionBar from '@/components/bluetooth/syncing/SyncActionBar.svelte';
-	import { Download, RefreshCw } from 'lucide-svelte';
+	import { Download, RefreshCw, CheckCircle } from 'lucide-svelte';
 	import { rpc } from '@/api';
+	import { osColor } from '@/components/bluetooth/syncing/os-theme';
 
 	let isRefreshing = $state(false);
 
@@ -98,6 +99,17 @@
 		});
 	});
 
+	// Device counts for summary strip
+	function countDevices(data: typeof btStore.state.windows) {
+		if (!data) return 0;
+		return data.controllers.reduce((sum, c) => sum + c.devices.length, 0);
+	}
+
+	let winDeviceCount = $derived(countDevices(btStore.state.windows));
+	let linDeviceCount = $derived(countDevices(btStore.state.linux));
+	let matchedCount = $derived(matchResult.alreadySynced.length + matchResult.needsSync.length + manualMatches.length);
+	let readyCount = $derived(Array.from(selections.values()).filter((s) => s.direction !== null).length);
+
 	// Re-initialize selections when match data changes, preserving existing user choices
 	$effect(() => {
 		const fresh = initSelections(matchResult);
@@ -136,7 +148,7 @@
 			linDevice.controllerAddress
 		);
 		manualMatches = [...manualMatches, match];
-		selections.set(manualPairKey(match.id), { direction: direction ?? null });
+		selections.set(manualPairKey(match.id), { direction: direction ?? 'win_to_linux' });
 		selections = new Map(selections);
 	}
 
@@ -165,12 +177,28 @@
 	}
 
 	function handleSyncComplete() {
-		// Clear stale state — the refreshed btStore data will re-derive
-		// matchResult correctly, so manual matches, deletions, and dismissed
-		// pairs from the old state would be duplicates or dangling references
 		manualMatches = [];
 		deletions = new Set();
 		dismissedAutoMatches = new Set();
+	}
+
+	// --- Toast ---
+	let toastMessage = $state<string | null>(null);
+	let toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+	$effect(() => {
+		return () => {
+			if (toastTimer) clearTimeout(toastTimer);
+		};
+	});
+
+	function showToast(message: string, duration = 2500) {
+		toastMessage = message;
+		if (toastTimer) clearTimeout(toastTimer);
+		toastTimer = setTimeout(() => {
+			toastMessage = null;
+			toastTimer = null;
+		}, duration);
 	}
 
 	// --- Debug export ---
@@ -194,6 +222,8 @@
 		a.click();
 		document.body.removeChild(a);
 		URL.revokeObjectURL(url);
+
+		showToast('Debug data exported');
 	}
 </script>
 
@@ -203,26 +233,60 @@
 	<div class="gf-content">
 		<!-- Header -->
 		<div class="sync-header">
-			<button class="back-btn mb-4" onclick={() => goto('/')}>
-				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-				Back
-			</button>
-			<div class="sync-title-row">
-				<h1 class="sync-title">Device Sync</h1>
-				<button class="gf-btn ghost small refresh-btn" onclick={refreshLinuxData} disabled={isRefreshing} title="Refresh Linux Bluetooth data">
-					<RefreshCw class="h-4 w-4 {isRefreshing ? 'animate-spin' : ''}" />
+			<div class="header-top-row">
+				<button class="back-btn" onclick={() => goto('/')}>
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+					Back
 				</button>
+				<div class="toolbar">
+					<button class="gf-btn ghost small" onclick={refreshLinuxData} disabled={isRefreshing} title="Refresh Linux Bluetooth data">
+						<RefreshCw class="h-3.5 w-3.5 {isRefreshing ? 'animate-spin' : ''}" />
+						Refresh
+					</button>
+					{#if btStore.state.windows || btStore.state.linux}
+						<button class="gf-btn ghost small" onclick={exportDebugData}>
+							<Download class="h-3 w-3" />
+							Export
+						</button>
+					{/if}
+				</div>
 			</div>
+			<h1 class="sync-title">Device Sync</h1>
 			<p class="sync-tagline">Match and sync Bluetooth pairing keys between systems</p>
 		</div>
 
-		<!-- Sync content -->
-		{#if isRefreshing}
-			<div class="refresh-panel">
-				<div class="refresh-bar"><div class="refresh-fill"></div></div>
-				<p class="refresh-text">Refreshing Linux Bluetooth data...</p>
+		<!-- Summary strip -->
+		{#if btStore.state.windows || btStore.state.linux}
+			<div class="summary-strip">
+				<div class="summary-stat">
+					<span class="stat-value" style="color: {osColor('Windows').textColor}">{winDeviceCount}</span>
+					<span class="stat-label">Windows</span>
+				</div>
+				<div class="summary-divider"></div>
+				<div class="summary-stat">
+					<span class="stat-value" style="color: {osColor('Linux').textColor}">{linDeviceCount}</span>
+					<span class="stat-label">Linux</span>
+				</div>
+				<div class="summary-divider"></div>
+				<div class="summary-stat">
+					<span class="stat-value">{matchedCount}</span>
+					<span class="stat-label">Matched</span>
+				</div>
+				<div class="summary-divider"></div>
+				<div class="summary-stat">
+					<span class="stat-value" style="color: #4ade80">{readyCount}</span>
+					<span class="stat-label">Ready</span>
+				</div>
 			</div>
-		{:else}
+		{/if}
+
+		<!-- Sync content -->
+		<div class="sync-content" class:content-refreshing={isRefreshing}>
+			{#if isRefreshing}
+				<div class="refresh-bar-container">
+					<div class="refresh-bar"><div class="refresh-fill"></div></div>
+				</div>
+			{/if}
 			<DeviceSyncLayout
 				{matchResult}
 				{manualMatches}
@@ -234,17 +298,16 @@
 				onautounlink={handleAutoUnlink}
 				ontoggledelete={handleToggleDelete}
 			/>
-		{/if}
-
-		{#if btStore.state.windows || btStore.state.linux}
-			<div class="debug-row">
-				<button class="gf-btn ghost small" onclick={exportDebugData}>
-					<Download class="h-3 w-3" />
-					Export debug data
-				</button>
-			</div>
-		{/if}
+		</div>
 	</div>
+
+	<!-- Toast notification -->
+	{#if toastMessage}
+		<div class="toast">
+			<CheckCircle class="h-4 w-4" />
+			<span>{toastMessage}</span>
+		</div>
+	{/if}
 </div>
 
 <SyncActionBar {matchResult} {manualMatches} {selections} {deletions} unpairedDevices={unpairedDevices} onsynccomplete={handleSyncComplete} />
@@ -252,22 +315,20 @@
 <style lang="css">
 	/* Header */
 	.sync-header {
-		margin-bottom: 2rem;
+		margin-bottom: 1.5rem;
 	}
 
-	.sync-title-row {
+	.header-top-row {
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		justify-content: space-between;
+		margin-bottom: 1rem;
 	}
 
-	.refresh-btn {
-		opacity: 0.6;
-		transition: opacity 0.15s;
-	}
-
-	.refresh-btn:hover:not(:disabled) {
-		opacity: 1;
+	.toolbar {
+		display: flex;
+		align-items: center;
+		gap: 6px;
 	}
 
 	.sync-title {
@@ -288,31 +349,73 @@
 		margin: 0.35rem 0 0;
 	}
 
-	/* Refresh loading state */
-	.refresh-panel {
-		border: 1px solid rgba(255, 255, 255, 0.06);
-		border-radius: 12px;
-		background: rgba(255, 255, 255, 0.015);
-		padding: 48px 16px;
+	/* Summary strip */
+	.summary-strip {
 		display: flex;
-		flex-direction: column;
 		align-items: center;
+		gap: 16px;
+		padding: 10px 16px;
+		border-radius: 10px;
+		background: rgba(255, 255, 255, 0.02);
+		border: 1px solid rgba(255, 255, 255, 0.06);
+		margin-bottom: 1.25rem;
+	}
+
+	.summary-stat {
+		display: flex;
+		align-items: baseline;
+		gap: 6px;
+	}
+
+	.stat-value {
+		font-size: 16px;
+		font-weight: 700;
+		color: rgba(250, 250, 250, 0.85);
+	}
+
+	.stat-label {
+		font-size: 12px;
+		color: rgba(250, 250, 250, 0.35);
+	}
+
+	.summary-divider {
+		width: 1px;
+		height: 16px;
+		background: rgba(255, 255, 255, 0.08);
+	}
+
+	/* Non-blocking refresh */
+	.sync-content {
+		position: relative;
+		transition: opacity 0.2s;
+	}
+
+	.sync-content.content-refreshing {
+		opacity: 0.6;
+		pointer-events: none;
+	}
+
+	.refresh-bar-container {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 5;
 	}
 
 	.refresh-bar {
-		width: min(280px, 80%);
-		height: 3px;
+		width: 100%;
+		height: 2px;
 		background: rgba(255, 255, 255, 0.06);
-		border-radius: 2px;
+		border-radius: 1px;
 		overflow: hidden;
-		margin-bottom: 12px;
 	}
 
 	.refresh-fill {
 		width: 30%;
 		height: 100%;
 		background: linear-gradient(90deg, #a78bfa, #60a5fa);
-		border-radius: 2px;
+		border-radius: 1px;
 		animation: refresh-sweep 1.5s ease-in-out infinite;
 	}
 
@@ -321,17 +424,36 @@
 		100% { transform: translateX(400%); }
 	}
 
-	.refresh-text {
-		font-size: 13px;
-		color: rgba(250, 250, 250, 0.4);
-		margin: 0;
-	}
-
-	/* Debug row */
-	.debug-row {
-		margin-top: 24px;
+	/* Toast */
+	.toast {
+		position: fixed;
+		bottom: 80px;
+		left: 50%;
+		transform: translateX(-50%);
 		display: flex;
-		justify-content: flex-end;
+		align-items: center;
+		gap: 8px;
+		padding: 10px 18px;
+		border-radius: 10px;
+		background: rgba(34, 197, 94, 0.12);
+		border: 1px solid rgba(34, 197, 94, 0.25);
+		color: #4ade80;
+		font-size: 13px;
+		font-weight: 500;
+		backdrop-filter: blur(12px);
+		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+		z-index: 50;
+		animation: toast-in 0.2s ease-out;
 	}
 
+	@keyframes toast-in {
+		from {
+			opacity: 0;
+			transform: translateX(-50%) translateY(8px);
+		}
+		to {
+			opacity: 1;
+			transform: translateX(-50%) translateY(0);
+		}
+	}
 </style>

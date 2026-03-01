@@ -1,5 +1,14 @@
 <script lang="ts">
-	import type { BluetoothData } from '#root/bindings';
+	import type { BluetoothData, BluetoothDevice, HostDistributions } from '#root/bindings';
+	import DeviceDetailsDialog from './bluetooth/syncing/DeviceDetailsDialog.svelte';
+
+	let detailsOpen = $state(false);
+	let detailsData: { device: BluetoothDevice; os: HostDistributions; controllerAddress: string } | null = $state(null);
+
+	function showDeviceDetails(device: BluetoothDevice, os: HostDistributions, controllerAddress: string) {
+		detailsData = { device, os, controllerAddress };
+		detailsOpen = true;
+	}
 
 	let {
 		windowsData,
@@ -210,11 +219,11 @@
 						{:else if windowsData}
 							<div class="panel-data">
 								<div class="summary-row">
-									<div class="summary-item">
+									<div class="summary-card">
 										<div class="summary-val">{windowsData.controllers.length}</div>
 										<div class="summary-label">Controllers</div>
 									</div>
-									<div class="summary-item">
+									<div class="summary-card">
 										<div class="summary-val">{deviceCount(windowsData)}</div>
 										<div class="summary-label">Devices</div>
 									</div>
@@ -223,10 +232,10 @@
 									<div class="device-group">
 										<div class="group-header">{controller.address}{controller.name ? ` — ${controller.name}` : ''}</div>
 										{#each controller.devices as device}
-											<div class="device-row">
+											<button class="device-row device-row-btn" onclick={() => showDeviceDetails(device, 'Windows', controller.address)}>
 												<span class="d-name">{device.name ?? 'Unknown'}</span>
 												<span class="d-type">{device.device_type}</span>
-											</div>
+											</button>
 										{/each}
 									</div>
 								{/each}
@@ -262,11 +271,11 @@
 						{:else if linuxData}
 							<div class="panel-data">
 								<div class="summary-row">
-									<div class="summary-item">
+									<div class="summary-card">
 										<div class="summary-val">{linuxData.controllers.length}</div>
 										<div class="summary-label">Controllers</div>
 									</div>
-									<div class="summary-item">
+									<div class="summary-card">
 										<div class="summary-val">{deviceCount(linuxData)}</div>
 										<div class="summary-label">Devices</div>
 									</div>
@@ -275,10 +284,10 @@
 									<div class="device-group">
 										<div class="group-header">{controller.address}{controller.name ? ` — ${controller.name}` : ''}</div>
 										{#each controller.devices as device}
-											<div class="device-row">
+											<button class="device-row device-row-btn" onclick={() => showDeviceDetails(device, 'Linux', controller.address)}>
 												<span class="d-name">{device.name ?? 'Unknown'}</span>
 												<span class="d-type">{device.device_type}</span>
-											</div>
+											</button>
 										{/each}
 									</div>
 								{/each}
@@ -310,8 +319,12 @@
 									<div class="sync-count">{deviceCount(linuxData!)} devices</div>
 								</div>
 							</div>
-							<button class="gf-btn primary w-full py-2.5 px-6 text-sm" onclick={onContinueToSync}>
+							<button class="gf-btn primary continue-btn" onclick={onContinueToSync}>
 								Continue to Sync
+								<svg class="continue-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M5 12h14" />
+									<path d="M13 6l6 6-6 6" />
+								</svg>
 							</button>
 						{:else}
 							<p class="panel-desc">Complete both scans above to proceed.</p>
@@ -323,10 +336,14 @@
 	</div>
 </div>
 
+{#if detailsData}
+	<DeviceDetailsDialog bind:open={detailsOpen} data={{ mode: 'single', device: detailsData.device, os: detailsData.os, controllerAddress: detailsData.controllerAddress }} />
+{/if}
+
 <style lang="css">
 	.gf-header {
 		text-align: center;
-		margin-bottom: 3rem;
+		margin-bottom: 2.25rem;
 	}
 
 	.logo-mark {
@@ -343,7 +360,7 @@
 	}
 
 	.gf-title {
-		font-size: 36px;
+		font-size: 32px;
 		font-weight: 700;
 		letter-spacing: -0.03em;
 		margin: 0;
@@ -397,6 +414,10 @@
 
 	.step-item.step-clickable:hover {
 		background: rgba(255, 255, 255, 0.04);
+	}
+
+	.step-item.step-active {
+		background: rgba(167, 139, 250, 0.06);
 	}
 
 	.step-dot {
@@ -456,7 +477,7 @@
 
 	.step-line {
 		width: 1.5px;
-		height: 32px;
+		height: 24px;
 		background: rgba(255, 255, 255, 0.08);
 		margin-left: 15px;
 		transition: background 0.3s;
@@ -474,8 +495,9 @@
 	.panel-card {
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		border-radius: 12px;
-		padding: 1.5rem;
+		padding: 1.75rem;
 		background: rgba(255, 255, 255, 0.02);
+		backdrop-filter: blur(8px);
 	}
 
 	.panel-title {
@@ -565,16 +587,20 @@
 
 	.summary-row {
 		display: flex;
-		gap: 2rem;
+		gap: 1rem;
 		margin-bottom: 1.25rem;
 	}
 
-	.summary-item {
+	.summary-card {
 		text-align: center;
+		padding: 8px 16px;
+		border-radius: 8px;
+		background: rgba(255, 255, 255, 0.03);
+		border: 1px solid rgba(255, 255, 255, 0.06);
 	}
 
 	.summary-val {
-		font-size: 28px;
+		font-size: 24px;
 		font-weight: 700;
 		color: #fafafa;
 		line-height: 1;
@@ -603,10 +629,23 @@
 		justify-content: space-between;
 		align-items: center;
 		padding: 6px 10px;
-		border-radius: 6px;
+		border-radius: 8px;
 		background: rgba(255, 255, 255, 0.03);
 		margin-bottom: 3px;
 		font-size: 13px;
+		transition: background 0.15s;
+	}
+
+	.device-row:hover {
+		background: rgba(255, 255, 255, 0.05);
+	}
+
+	.device-row-btn {
+		border: none;
+		font-family: inherit;
+		width: 100%;
+		text-align: left;
+		cursor: pointer;
 	}
 
 	.d-name {
@@ -618,7 +657,7 @@
 		color: rgba(250, 250, 250, 0.25);
 		padding: 2px 8px;
 		background: rgba(255, 255, 255, 0.04);
-		border-radius: 4px;
+		border-radius: 6px;
 	}
 
 	/* Sync panel */
@@ -642,8 +681,7 @@
 		font-size: 12px;
 		color: rgba(250, 250, 250, 0.4);
 		font-weight: 500;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: 0.02em;
 		margin-bottom: 2px;
 	}
 
@@ -657,11 +695,26 @@
 		color: rgba(250, 250, 250, 0.2);
 	}
 
+	/* Continue button */
+	.continue-btn {
+		width: 100%;
+		justify-content: center;
+		padding: 10px 20px;
+		font-size: 14px;
+	}
+
+	.continue-arrow {
+		transition: transform 0.2s;
+	}
+
+	.continue-btn:hover .continue-arrow {
+		transform: translateX(3px);
+	}
+
 	/* Buttons */
 	.btn-group {
 		display: flex;
 		gap: 8px;
 		flex-wrap: wrap;
 	}
-
 </style>

@@ -1,7 +1,6 @@
 use crate::api::sync_api::SyncProposal;
 use crate::sync::{hex_to_bytes, mac_to_flat_format, validate_key_length};
 
-use bluetooth_model::BluetoothDevice;
 use hivex::node::NodeHandle;
 use hivex::value::Value;
 use hivex::{CommitFlags, Hive, OpenFlags, SetValueFlags};
@@ -23,7 +22,7 @@ fn detect_active_controlset(hive: &Hive) -> String {
         Err(_) => return "ControlSet001".to_string(),
     };
     let n = hive.value(current_handle).downcast_dword();
-    if n >= 1 && n <= 9 {
+    if (1..=9).contains(&n) {
         format!("ControlSet{:03}", n)
     } else {
         "ControlSet001".to_string()
@@ -71,17 +70,18 @@ pub fn apply_batch(
 }
 
 fn apply_copy_keys(hive: &Hive, controlset: &str, proposal: &SyncProposal) -> Result<(), String> {
-    let (source_device, target_controller_address) = match proposal {
+    let (source_device, target_device, target_controller_address) = match proposal {
         SyncProposal::CopyKeys {
             source_device,
+            target_device,
             target_controller_address,
             ..
-        } => (source_device, target_controller_address),
+        } => (source_device, target_device, target_controller_address),
         _ => return Err("Expected CopyKeys proposal".to_string()),
     };
 
     let controller_mac = mac_to_flat_format(target_controller_address);
-    let device_mac = mac_to_flat_format(&source_device.address.to_string());
+    let device_mac = mac_to_flat_format(&target_device.address.to_string());
 
     // Write Classic link key to BTHPORT
     if let Some(ref link_key) = source_device.link_key {
@@ -96,7 +96,6 @@ fn apply_copy_keys(hive: &Hive, controlset: &str, proposal: &SyncProposal) -> Re
             controlset,
             &controller_mac,
             &device_mac,
-            source_device,
             le_data,
         )?;
     }
@@ -135,7 +134,7 @@ fn apply_delete_device(hive: &Hive, controlset: &str, proposal: &SyncProposal) -
 
         // For classic keys, we can't directly delete a single value with hivex's current API,
         // but we can overwrite it with an empty binary value as a soft-delete
-        if let Ok(_) = bthport_node.get_value(&*device_mac) {
+        if bthport_node.get_value(&*device_mac).is_ok() {
             bthport_node
                 .set_value(
                     SetValueFlags::empty(),
@@ -198,7 +197,6 @@ fn write_le_keys(
     controlset: &str,
     controller_mac: &str,
     device_mac: &str,
-    _source_device: &BluetoothDevice,
     le_data: &bluetooth_model::BluetoothLowEnergyKey,
 ) -> Result<(), String> {
     let path = format!(
@@ -315,6 +313,20 @@ fn write_le_keys(
     Ok(())
 }
 
+/// Case-insensitive child lookup (Windows registry keys are case-insensitive,
+/// but the hivex crate's `get_child` does an exact byte comparison).
+fn get_child_icase(hive: &Hive, parent: NodeHandle, name: &str) -> Option<NodeHandle> {
+    let node = hive.node(parent);
+    let children = node.children();
+    let target = name.to_uppercase();
+    children.iter().find(|&&child| {
+        hive.node(child)
+            .name()
+            .map(|n| n.to_uppercase() == target)
+            .unwrap_or(false)
+    }).copied()
+}
+
 /// Navigate to a registry key path, returning the node handle if it exists.
 fn navigate_to_key(hive: &Hive, path: &str) -> Result<Option<NodeHandle>, String> {
     let root = hive
@@ -323,8 +335,7 @@ fn navigate_to_key(hive: &Hive, path: &str) -> Result<Option<NodeHandle>, String
 
     let mut current = root;
     for component in path.split('\\') {
-        let node = hive.node(current);
-        match node.get_child(component) {
+        match get_child_icase(hive, current, component) {
             Some(child) => current = child,
             None => return Ok(None),
         }
@@ -341,11 +352,10 @@ fn navigate_or_create_key(hive: &Hive, path: &str) -> Result<NodeHandle, String>
 
     let mut current = root;
     for component in path.split('\\') {
-        let node = hive.node(current);
-        match node.get_child(component) {
+        match get_child_icase(hive, current, component) {
             Some(child) => current = child,
             None => {
-                current = node
+                current = hive.node(current)
                     .node_add_child(component)
                     .map_err(|e| format!("Failed to create key '{}': {}", component, e))?;
             }

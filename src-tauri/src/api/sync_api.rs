@@ -8,15 +8,15 @@ use crate::sync;
 #[serde(tag = "action")]
 pub enum SyncProposal {
     CopyKeys {
-        source_device: BluetoothDevice,
-        target_device: BluetoothDevice,
+        source_device: Box<BluetoothDevice>,
+        target_device: Box<BluetoothDevice>,
         source_os: HostDistributions,
         target_os: HostDistributions,
         source_controller_address: String,
         target_controller_address: String,
     },
     DeleteDevice {
-        device: BluetoothDevice,
+        device: Box<BluetoothDevice>,
         os: HostDistributions,
         controller_address: String,
     },
