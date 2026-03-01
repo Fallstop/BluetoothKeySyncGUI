@@ -3,10 +3,15 @@
 	import { ModeWatcher } from "mode-watcher";
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { enableSmoothScroll } from '$lib/smoothScroll';
 	let { children } = $props();
 
 	let isHome = $derived(page.url.pathname === '/' || page.url.pathname === '/index.html');
 	let isSyncPage = $derived(page.url.pathname.startsWith('/sync'));
+
+	$effect(() => {
+		return enableSmoothScroll();
+	});
 </script>
 <ModeWatcher defaultMode="dark" />
 <div class="app-shell">
