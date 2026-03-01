@@ -1,0 +1,56 @@
+name: bluetooth-key-sync
+version: '0.1.0'
+summary: Sync Bluetooth pairing keys between Windows and Linux
+description: |
+  Bluetooth Key Sync helps dual-boot users avoid re-pairing Bluetooth devices
+  every time they switch between Windows and Linux. It reads pairing keys from
+  a Windows SYSTEM registry hive, lets you visually match devices, and writes
+  the synced keys to your Linux Bluetooth configuration.
+
+base: core22
+confinement: strict
+grade: stable
+license: MIT
+icon: logo.svg
+
+architectures:
+  - build-on: [amd64]
+    build-for: [amd64]
+
+apps:
+  bluetooth-key-sync:
+    command: usr/bin/bluetooth-key-sync
+    extensions: [gnome]
+    plugs:
+      - home
+      - removable-media
+      - bluetooth-control
+      - bt-config
+
+plugs:
+  bt-config:
+    interface: system-files
+    read:
+      - /var/lib/bluetooth
+    write:
+      - /var/lib/bluetooth
+
+parts:
+  bluetooth-key-sync:
+    plugin: dump
+    source: bluetooth-key-sync.deb
+    source-type: deb
+
+    stage-packages:
+      - libwebkit2gtk-4.1-0
+
+    override-prime: |
+      craftctl default
+
+      # Install desktop file with correct app ID
+      mkdir -p $CRAFT_PRIME/meta/gui
+      cp ${CRAFT_PART_SRC}/../../../nz.jmw.bluetooth-key-sync.desktop $CRAFT_PRIME/meta/gui/bluetooth-key-sync.desktop
+
+      # Install icon
+      mkdir -p $CRAFT_PRIME/meta/gui/icons/scalable/apps
+      cp ${CRAFT_PART_SRC}/../../../logo.svg $CRAFT_PRIME/meta/gui/icons/scalable/apps/nz.jmw.bluetooth-key-sync.svg

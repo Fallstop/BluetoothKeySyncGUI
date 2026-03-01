@@ -338,8 +338,6 @@
 								onpointerdown={(e) => handleCardPointerDown(device, e)}
 								ondelete={() => ontoggledelete?.(device)}
 							/>
-						{:else}
-							<div class="empty-slot">No Windows match</div>
 						{/if}
 					</div>
 					<div>
@@ -358,8 +356,6 @@
 								onpointerdown={(e) => handleCardPointerDown(device, e)}
 								ondelete={() => ontoggledelete?.(device)}
 							/>
-						{:else}
-							<div class="empty-slot">No Linux match</div>
 						{/if}
 					</div>
 				{/each}
@@ -462,15 +458,6 @@
 
 	.col-header-right {
 		text-align: right;
-	}
-
-	.empty-slot {
-		border: 1px dashed rgba(255, 255, 255, 0.08);
-		border-radius: 10px;
-		padding: 16px;
-		text-align: center;
-		font-size: 12px;
-		color: rgba(250, 250, 250, 0.2);
 	}
 
 	.empty-state {

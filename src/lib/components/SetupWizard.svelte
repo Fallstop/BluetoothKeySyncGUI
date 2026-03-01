@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { BluetoothData, BluetoothDevice, HostDistributions } from '#root/bindings';
 	import DeviceDetailsDialog from './bluetooth/syncing/DeviceDetailsDialog.svelte';
+	import { Github } from 'lucide-svelte';
+	import { openUrl } from '@tauri-apps/plugin-opener';
 
 	let detailsOpen = $state(false);
 	let detailsData: { device: BluetoothDevice; os: HostDistributions; controllerAddress: string } | null = $state(null);
@@ -89,6 +91,9 @@
 
 <div class="gf-root">
 	<div class="gradient-mesh"></div>
+	<button class="github-link" onclick={() => openUrl('https://github.com/Fallstop/BluetoothKeySyncGUI')} title="View on GitHub">
+		<Github size={16} />
+	</button>
 
 	<div class="gf-content max-w-[860px] pt-12">
 		<!-- Header -->
@@ -371,6 +376,28 @@
 		font-size: 15px;
 		font-weight: 400;
 		margin: 0.5rem 0 0;
+	}
+
+	.github-link {
+		position: fixed;
+		top: 12px;
+		left: 12px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 6px;
+		border: none;
+		border-radius: 8px;
+		background: rgba(255, 255, 255, 0.05);
+		color: rgba(250, 250, 250, 0.4);
+		cursor: pointer;
+		transition: color 0.2s, background 0.2s;
+		z-index: 10;
+	}
+
+	.github-link:hover {
+		color: rgba(250, 250, 250, 0.8);
+		background: rgba(255, 255, 255, 0.1);
 	}
 
 	/* Main layout */

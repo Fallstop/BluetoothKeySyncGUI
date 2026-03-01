@@ -30,7 +30,7 @@
 		flex-direction: column;
 		background: #09090b;
 		color: #fafafa;
-		font-family: 'Inter', system-ui, -apple-system, sans-serif;
+		font-family: 'Sora Variable', system-ui, -apple-system, sans-serif;
 	}
 
 	.app-header {

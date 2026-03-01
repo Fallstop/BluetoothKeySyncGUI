@@ -9,7 +9,10 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, ChildStdout};
 use tokio::sync::{oneshot, Mutex};
 
-use crate::elevated::{find_askpass, is_elevated, relative_command_path};
+use crate::elevated::{
+    find_askpass, flatpak_host_binary_path, is_elevated, is_flatpak, is_snap,
+    relative_command_path,
+};
 
 static WORKER: OnceLock<ElevatedWorker> = OnceLock::new();
 
@@ -74,7 +77,57 @@ impl ElevatedWorker {
 
         let path = relative_command_path("elevated_scrapper")?;
 
-        let mut child = if is_elevated() {
+        let mut child = if is_flatpak() {
+            // Inside Flatpak: escape sandbox via flatpak-spawn --host, use host's
+            // pkexec for the authentication dialog. The elevated scrapper binary
+            // path must be resolved to its host-visible location.
+            let host_path = flatpak_host_binary_path("elevated_scrapper")
+                .map_err(|e| format!("Flatpak: failed to resolve host binary path: {}", e))?;
+
+            tokio::process::Command::new("flatpak-spawn")
+                .args([
+                    "--host",
+                    "--watch-bus",
+                    "pkexec",
+                    "--",
+                ])
+                .arg(&host_path)
+                .args(["serve", "--privileged"])
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn()
+                .map_err(|e| format!("Failed to spawn flatpak-spawn: {}", e))?
+        } else if is_snap() {
+            // Inside Snap: the snap has system-files plug for /var/lib/bluetooth.
+            // Use pkexec via D-Bus (PolicyKit1) for privilege escalation.
+            // If pkexec isn't accessible, fall back to direct execution with
+            // the assumption that system-files plug provides sufficient access.
+            let pkexec_result = tokio::process::Command::new("pkexec")
+                .arg("--")
+                .arg(&path)
+                .args(["serve", "--privileged"])
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn();
+
+            match pkexec_result {
+                Ok(proc) => proc,
+                Err(_) => {
+                    // pkexec not available in snap — try direct execution.
+                    // The system-files plug may grant sufficient access.
+                    eprintln!("Snap: pkexec unavailable, attempting direct execution");
+                    tokio::process::Command::new(&path)
+                        .args(["serve", "--privileged"])
+                        .stdin(std::process::Stdio::piped())
+                        .stdout(std::process::Stdio::piped())
+                        .stderr(std::process::Stdio::piped())
+                        .spawn()
+                        .map_err(|e| format!("Failed to spawn elevated worker in snap: {}", e))?
+                }
+            }
+        } else if is_elevated() {
             tokio::process::Command::new(&path)
                 .args(["serve", "--privileged"])
                 .stdin(std::process::Stdio::piped())

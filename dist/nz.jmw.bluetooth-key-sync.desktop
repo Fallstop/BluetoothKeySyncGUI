@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Bluetooth Key Sync
+Comment=Sync Bluetooth pairing keys between Windows and Linux
+Exec=bluetooth-key-sync %u
+Icon=nz.jmw.bluetooth-key-sync
+Terminal=false
+Type=Application
+Categories=Utility;Settings;System;
+Keywords=bluetooth;dual-boot;pairing;sync;
+StartupWMClass=bluetooth-key-sync
+MimeType=

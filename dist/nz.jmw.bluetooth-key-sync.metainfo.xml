@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>nz.jmw.bluetooth-key-sync</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+
+  <name>Bluetooth Key Sync</name>
+  <summary>Sync Bluetooth pairing keys between Windows and Linux</summary>
+
+  <description>
+    <p>
+      Bluetooth Key Sync helps dual-boot users avoid re-pairing Bluetooth devices
+      every time they switch between Windows and Linux. It reads pairing keys from
+      a Windows SYSTEM registry hive, lets you visually match devices, and writes
+      the synced keys to your Linux Bluetooth configuration.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Parse Windows SYSTEM registry hive files for Bluetooth pairing keys</li>
+      <li>Scan Linux /var/lib/bluetooth/ configuration</li>
+      <li>Visual device matching on an interactive node canvas</li>
+      <li>Write synced keys to Linux Bluetooth config</li>
+    </ul>
+  </description>
+
+  <categories>
+    <category>Utility</category>
+    <category>Settings</category>
+    <category>System</category>
+  </categories>
+
+  <keywords>
+    <keyword>bluetooth</keyword>
+    <keyword>dual-boot</keyword>
+    <keyword>pairing</keyword>
+    <keyword>sync</keyword>
+    <keyword>windows</keyword>
+    <keyword>linux</keyword>
+  </keywords>
+
+  <url type="homepage">https://github.com/Fallstop/BluetoothKeySyncGUI</url>
+  <url type="bugtracker">https://github.com/Fallstop/BluetoothKeySyncGUI/issues</url>
+  <url type="vcs-browser">https://github.com/Fallstop/BluetoothKeySyncGUI</url>
+
+  <launchable type="desktop-id">nz.jmw.bluetooth-key-sync.desktop</launchable>
+
+  <provides>
+    <binary>bluetooth-key-sync</binary>
+  </provides>
+
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#3b82f6</color>
+    <color type="primary" scheme_preference="dark">#1e40af</color>
+  </branding>
+
+  <releases>
+    <release version="0.1.0" date="2026-03-01">
+      <description>
+        <p>Initial release.</p>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1" />
+</component>

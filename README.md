@@ -1,38 +1,48 @@
-# Bluetooth Key Sync GUI
-### A simple & resilient GUI to sync Bluetooth pairing codes between Windows and Linux
+# Bluetooth Key Sync
 
+A desktop app that syncs Bluetooth pairing keys between Windows and Linux, so you don't have to re-pair your devices every time you switch operating systems.
 
-| Home Page                      | Windows Scan                      |
-| ------------------------------ | --------------------------------- |
-| ![](./docs_media/HomePage.png) | ![](./docs_media/WindowsScan.png) |
+Built with Tauri 2, SvelteKit, and Rust.
 
+## The Problem
 
-## The Why
-Ever had to deal with Bluetooth pairing when switching between operating systems? External bluetooth devices treat your machine as the same device, but the pairing codes are stored separately in each OS. I for one, have manually synced these codes for years, [using this fantastic guide](https://unix.stackexchange.com/a/255510/704807), and it was always a hassle.
+When you pair a Bluetooth device, both your computer and the device store a shared secret key. The trouble is that your Bluetooth adapter has the same MAC address on both Windows and Linux — so when you pair a device on one OS, it overwrites the key the device had stored for the other. You end up having to re-pair every time you reboot into a different OS.
 
-To quote the author of that guide:
+The [classic workaround](https://unix.stackexchange.com/a/255510/704807) involves manually extracting keys from the Windows registry and copying them into Linux's BlueZ config files. It works, but it's tedious, error-prone, and breaks down with anything beyond simple devices.
 
-> Basically, when you pair your device, your Bluetooth service generates a unique set of pairing keys. First, your computer stores the Bluetooth device's MAC address and pairing key. Second, your Bluetooth device stores your computer's MAC address and the matching key. This usually works fine, but the MAC address for your Bluetooth port will be the same on both Linux and Windows (it is set on the hardware level). Thus, when you re-pair the device in Windows or Linux and it generates a new key, that key overwrites the previously stored key on the Bluetooth device. Windows overwrites the Linux key and vice versa.
+Existing CLI tools that attempt to automate this tend to fall apart when they encounter device types the author didn't test — dual-mode devices with both Classic and LE keys, BlueZ config quirks, or devices with rolling MAC addresses like the Logitech MX Master series.
 
-There are many cli tools out there that can help with this, but I've found that *every single one of them* implodes when it encounters a class of device that the Author didn't test.
+## What This Does
 
-Not a single one I tested Just Works™ on all my devices, whether it's BlueZ renaming a config value, dual-mode devices with both Classic and LE pairing codes, or the grand-daddy of them all, the dreaded MX Master with a rolling mac address. 
+Bluetooth Key Sync reads pairing data from both operating systems, lets you visually match devices, and writes the synced keys — handling the edge cases that trip up other tools.
 
-## Project Goals
-- Strive for a progressive disclosure UX experience, where new linux users are not overwhelmed with terminology and options, while still providing advanced features for people who used to do this manually.
-- Provide a resilient core that can fail gracefully when encountering the many usual edge-cases of Bluetooth pairing.
-- Support the following devices:
-  - Bluetooth Classic
-  - Bluetooth Low Energy
-  - Dual-mode devices (both Classic and LE)
-  - Devices with rolling mac addresses (like the MX Master)
+**Step 1 — Load Windows data.** Point the app at your Windows partition (or a SYSTEM registry hive file directly). It parses the Bluetooth pairing keys from the registry without needing Windows to be running.
 
-## Contributing
-> Tauri + SvelteKit + TypeScript + Rust = ❤️
+**Step 2 — Load Linux data.** The app spawns an elevated helper binary to read BlueZ's config files from `/var/lib/bluetooth/`. You'll be prompted for your password.
 
-To start the project, run:
+**Step 3 — Match and sync.** Devices are auto-matched where possible. For anything ambiguous, you can manually pair them. Choose a sync direction and apply — the app writes the keys to the target OS config.
 
-```bash
-pnpm i
-pnpm tauri dev
-```
+### Supported Device Types
+
+- Bluetooth Classic
+- Bluetooth Low Energy (LE)
+- Dual-mode devices (Classic + LE)
+- Devices with rolling MAC addresses
+
+## How It Works
+
+The frontend communicates with the Rust backend through [taurpc](https://github.com/oscartbeaumont/tauri-specta), which auto-generates TypeScript bindings from Rust types via [specta](https://github.com/oscartbeaumont/specta).
+
+Windows pairing data is extracted from the SYSTEM registry hive using [nt_hive2](https://crates.io/crates/nt_hive2) — no Windows APIs needed, just the raw file from a mounted partition. Linux data comes from BlueZ's config files under `/var/lib/bluetooth/`, which requires root access to read. A separate elevated binary handles this, communicating with the main app over stdin/stdout.
+
+Parsed data from both sides is normalized into a common `BluetoothData` model (controllers, devices, and their associated keys), which the frontend uses to present the matching interface and generate sync proposals.
+
+## Design Goals
+
+- **Progressive disclosure.** The default flow should be approachable for someone who's never touched a terminal. Advanced options are available but not in the way.
+- **Graceful failure.** Bluetooth pairing has countless edge cases. The app should handle what it can and clearly report what it can't, rather than silently corrupting configs.
+- **Broad device support.** If a device pairs over Bluetooth, this tool should be able to sync it — Classic, LE, dual-mode, rolling MAC, all of it.
+
+## License
+
+MIT — see [LICENSE.md](./LICENSE.md).

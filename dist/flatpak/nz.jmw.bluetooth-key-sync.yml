@@ -1,0 +1,54 @@
+app-id: nz.jmw.bluetooth-key-sync
+runtime: org.gnome.Platform
+runtime-version: '47'
+sdk: org.gnome.Sdk
+command: bluetooth-key-sync
+
+finish-args:
+  # Display (Wayland + X11 fallback)
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+
+  # Read access to host filesystem (Windows hive file selection)
+  - --filesystem=host:ro
+
+  # D-Bus access for Flatpak host command execution (privilege escalation)
+  - --talk-name=org.freedesktop.Flatpak
+
+  # D-Bus access for desktop integration
+  - --talk-name=org.freedesktop.Notifications
+
+modules:
+  - name: bluetooth-key-sync
+    buildsystem: simple
+    build-commands:
+      # Extract the .deb package
+      - ar x bluetooth-key-sync.deb
+      - tar xf data.tar.*
+
+      # Install main binary
+      - install -Dm755 usr/bin/bluetooth-key-sync /app/bin/bluetooth-key-sync
+
+      # Install elevated scrapper sidecar
+      - install -Dm755 usr/bin/elevated_scrapper /app/bin/elevated_scrapper
+
+      # Install desktop file
+      - install -Dm644 nz.jmw.bluetooth-key-sync.desktop /app/share/applications/nz.jmw.bluetooth-key-sync.desktop
+
+      # Install AppStream metadata
+      - install -Dm644 nz.jmw.bluetooth-key-sync.metainfo.xml /app/share/metainfo/nz.jmw.bluetooth-key-sync.metainfo.xml
+
+      # Install icons
+      - install -Dm644 logo.svg /app/share/icons/hicolor/scalable/apps/nz.jmw.bluetooth-key-sync.svg
+
+    sources:
+      - type: file
+        path: bluetooth-key-sync.deb
+      - type: file
+        path: nz.jmw.bluetooth-key-sync.desktop
+      - type: file
+        path: nz.jmw.bluetooth-key-sync.metainfo.xml
+      - type: file
+        path: logo.svg

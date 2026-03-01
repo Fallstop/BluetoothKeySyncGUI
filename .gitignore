@@ -10,3 +10,24 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 CLAUDE.md
+
+# Flatpak build artifacts
+flatpak-build/
+flatpak-repo/
+.flatpak-builder/
+*.flatpak
+
+# Snap build artifacts
+*.snap
+dist/snap/parts/
+dist/snap/stage/
+dist/snap/prime/
+
+# Copied build intermediates (local builds copy these temporarily)
+dist/flatpak/bluetooth-key-sync.deb
+dist/flatpak/logo.svg
+dist/flatpak/nz.jmw.bluetooth-key-sync.desktop
+dist/flatpak/nz.jmw.bluetooth-key-sync.metainfo.xml
+dist/snap/bluetooth-key-sync.deb
+dist/snap/logo.svg
+dist/snap/nz.jmw.bluetooth-key-sync.desktop

@@ -34,7 +34,7 @@ export default defineConfig(async () => ({
       : undefined,
     watch: {
       // 3. tell vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      ignored: ["**/src-tauri/**", "**/flatpak-build/**", "**/flatpak-repo/**", "**/.flatpak-builder/**", "**/dist/snap/parts/**", "**/dist/snap/stage/**", "**/dist/snap/prime/**"],
     },
 
 		fs: {

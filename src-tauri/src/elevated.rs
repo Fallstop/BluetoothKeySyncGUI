@@ -20,6 +20,48 @@ pub fn is_elevated() -> bool {
     unsafe { libc::getuid() == 0 }
 }
 
+/// Check if running inside a Flatpak sandbox.
+pub fn is_flatpak() -> bool {
+    std::env::var("FLATPAK_ID").is_ok()
+}
+
+/// Check if running inside a Snap sandbox.
+pub fn is_snap() -> bool {
+    std::env::var("SNAP").is_ok()
+}
+
+/// Resolve the host-visible path to the elevated scrapper binary when running
+/// inside a Flatpak sandbox. Uses `flatpak-spawn --host flatpak info --show-location`
+/// to find the Flatpak installation path, then constructs the path to the binary
+/// inside the app's `files/bin/` directory.
+pub fn flatpak_host_binary_path(binary_name: &str) -> Result<PathBuf, String> {
+    let output = StdCommand::new("flatpak-spawn")
+        .args([
+            "--host",
+            "flatpak",
+            "info",
+            "--show-location",
+            "nz.jmw.bluetooth-key-sync",
+        ])
+        .output()
+        .map_err(|e| format!("Failed to query Flatpak install location: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("flatpak info failed: {}", stderr.trim()));
+    }
+
+    let location = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if location.is_empty() {
+        return Err("Flatpak install location is empty".to_string());
+    }
+
+    Ok(PathBuf::from(location)
+        .join("files")
+        .join("bin")
+        .join(binary_name))
+}
+
 /// Find a graphical askpass program.
 pub fn find_askpass() -> Option<String> {
     // Check SSH_ASKPASS environment variable first (standard mechanism)
