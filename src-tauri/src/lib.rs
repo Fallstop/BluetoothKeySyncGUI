@@ -25,6 +25,23 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_svelte::init())
         .invoke_handler(router.into_handler())
+        .setup(|app| {
+            // Disable WebKitGTK smooth scrolling — it causes broken/janky
+            // scrolling on Wayland, especially with high-precision mice.
+            // See: https://github.com/tauri-apps/tauri/issues/14427
+            #[cfg(target_os = "linux")]
+            {
+                use webkit2gtk::{WebViewExt, SettingsExt};
+                let main_window = app.get_webview_window("main").expect("no main window");
+                main_window.with_webview(|webview| {
+                    let wk = webview.inner();
+                    if let Some(settings) = wk.settings() {
+                        settings.set_enable_smooth_scrolling(false);
+                    }
+                })?;
+            }
+            Ok(())
+        })
         .on_window_event(|_window, event| {
             if let tauri::WindowEvent::Destroyed = event {
                 // Shut down the elevated worker when the app closes
