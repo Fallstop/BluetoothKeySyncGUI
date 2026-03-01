@@ -47,5 +47,10 @@ base64 = "0.22"
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2.4.0"
 
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+
 [workspace]
 members = ["elevated_scrapper_standalone"]

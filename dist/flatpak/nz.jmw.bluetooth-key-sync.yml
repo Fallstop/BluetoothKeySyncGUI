@@ -1,6 +1,6 @@
 app-id: nz.jmw.bluetooth-key-sync
 runtime: org.gnome.Platform
-runtime-version: '47'
+runtime-version: '49'
 sdk: org.gnome.Sdk
 command: bluetooth-key-sync
 
@@ -10,6 +10,11 @@ finish-args:
   - --socket=fallback-x11
   - --share=ipc
   - --device=dri
+
+  # WebKitGTK's bubblewrap sandbox conflicts with Flatpak's sandbox
+  - --env=WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+  # WebKitGTK DMA-BUF renderer can crash in sandboxed environments
+  - --env=WEBKIT_DISABLE_DMABUF_RENDERER=1
 
   # Read access to host filesystem (Windows hive file selection)
   - --filesystem=host:ro

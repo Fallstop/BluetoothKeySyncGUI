@@ -13,7 +13,7 @@ env:
 jobs:
   # ─── Job 1: Build Tauri app (.deb, .rpm, .AppImage) ───
   build-tauri:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -80,7 +80,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: build-tauri
     container:
-      image: bilelmoussaoui/flatpak-github-actions:gnome-47
+      image: bilelmoussaoui/flatpak-github-actions:gnome-49
       options: --privileged
     steps:
       - uses: actions/checkout@v4

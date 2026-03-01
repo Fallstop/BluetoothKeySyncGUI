@@ -26,6 +26,7 @@ fn format_bluez_bool_text(v: bool) -> String {
 #[derive(Debug, Clone)]
 pub struct DeviceInfo {
     ini: Ini,
+    #[allow(dead_code)]
     address: MacAddress,
 }
 
@@ -60,6 +61,7 @@ impl DeviceInfo {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn address(&self) -> MacAddress {
         self.address
     }
@@ -89,6 +91,7 @@ impl DeviceInfo {
         // None = don't touch existing value (avoid destructive removal)
     }
 
+    #[allow(dead_code)]
     fn remove_field(&mut self, section_name: &str, key: &str) {
         if let Some(section) = self.ini.section_mut(Some(section_name)) {
             section.remove(key);
@@ -99,6 +102,7 @@ impl DeviceInfo {
         self.set_option_helper("General", "Name", name);
     }
 
+    #[allow(dead_code)]
     pub fn alias(&self) -> Option<String> {
         self.ini.section(Some("General"))?
             .get("Alias")
@@ -106,6 +110,7 @@ impl DeviceInfo {
             .map(|s| s.to_string())
     }
 
+    #[allow(dead_code)]
     pub fn set_alias(&mut self, alias: Option<String>) {
         self.set_option_helper("General", "Alias", alias);
     }
@@ -121,6 +126,7 @@ impl DeviceInfo {
         })
     }
 
+    #[allow(dead_code)]
     pub fn set_device_id(&mut self, device_id: Option<DeviceID>) {
         if let Some(id) = device_id {
             self.set_option_helper("DeviceID", "Source", id.source.map(|v| v.to_string()));
@@ -273,22 +279,26 @@ impl DeviceInfo {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_trusted(&self) -> Option<bool> {
         self.ini.section(Some("General"))?
             .get("Trusted")
             .and_then(|s| s.parse().ok())
     }
 
+    #[allow(dead_code)]
     pub fn set_trusted(&mut self, trusted: Option<bool>) {
         self.set_option_helper("General", "Trusted", trusted.map(|v| v.to_string()));
     }
 
+    #[allow(dead_code)]
     pub fn is_blocked(&self) -> Option<bool> {
         self.ini.section(Some("General"))?
             .get("Blocked")
             .and_then(|s| s.parse().ok())
     }
 
+    #[allow(dead_code)]
     pub fn set_blocked(&mut self, blocked: Option<bool>) {
         self.set_option_helper("General", "Blocked", blocked.map(|v| v.to_string()));
     }

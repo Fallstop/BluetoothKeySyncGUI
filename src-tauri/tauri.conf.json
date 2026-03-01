@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "bluetooth-key-sync",
+        "title": "Bluetooth Key Sync",
         "width": 1200,
         "height": 960
       }

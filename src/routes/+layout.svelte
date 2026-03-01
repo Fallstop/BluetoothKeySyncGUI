@@ -5,11 +5,17 @@
 	import { goto } from '$app/navigation';
 	let { children } = $props();
 
-	let isHome = $derived(page.url.pathname === '/');
+	let isHome = $derived(page.url.pathname === '/' || page.url.pathname === '/index.html');
 	let isSyncPage = $derived(page.url.pathname.startsWith('/sync'));
 </script>
 <ModeWatcher defaultMode="dark" />
 <div class="app-shell">
+	<svg class="noise-texture" aria-hidden="true">
+		<filter id="noise">
+			<feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+		</filter>
+		<rect width="100%" height="100%" filter="url(#noise)" />
+	</svg>
 	{#if !isHome && !isSyncPage}
 		<div class="app-header">
 			<button class="back-btn" onclick={() => goto('/')}>
@@ -31,15 +37,30 @@
 		background: #09090b;
 		color: #fafafa;
 		font-family: 'Sora Variable', system-ui, -apple-system, sans-serif;
+		position: relative;
+	}
+
+	.noise-texture {
+		position: fixed;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		opacity: 0.035;
+		pointer-events: none;
+		z-index: 0;
 	}
 
 	.app-header {
+		position: relative;
+		z-index: 1;
 		padding: 12px 20px;
 		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 		background: rgba(255, 255, 255, 0.02);
 	}
 
 	.page-enter {
+		position: relative;
+		z-index: 1;
 		display: flex;
 		flex-direction: column;
 		flex: 1;
