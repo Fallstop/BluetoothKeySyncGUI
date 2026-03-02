@@ -314,6 +314,50 @@ export function matchDevicesForController(
 		}
 	}
 
+	// Pass 3: Match remaining unmatched LE devices by name + device type.
+	// BLE devices with static random addresses get different MACs and IRKs on each
+	// OS, so MAC/IRK matching fails. Name matching catches these (e.g. MX Master 3S).
+	// Only match when the name is unique among remaining unmatched devices on each side.
+	const unmatchedWin = winDevices.filter((d) => !matchedWinMacs.has(d.address.toUpperCase()));
+	const unmatchedLin = linDevices.filter((d) => !matchedLinuxMacs.has(d.address.toUpperCase()));
+
+	// Build name+type -> device map, only for devices with names and LE data
+	const winByNameType = new Map<string, BluetoothDevice[]>();
+	for (const dev of unmatchedWin) {
+		if (!dev.name || !dev.le_data) continue;
+		const key = `${dev.name.toLowerCase()}|${dev.device_type}`;
+		const arr = winByNameType.get(key) ?? [];
+		arr.push(dev);
+		winByNameType.set(key, arr);
+	}
+
+	const linByNameType = new Map<string, BluetoothDevice[]>();
+	for (const dev of unmatchedLin) {
+		if (!dev.name || !dev.le_data) continue;
+		const key = `${dev.name.toLowerCase()}|${dev.device_type}`;
+		const arr = linByNameType.get(key) ?? [];
+		arr.push(dev);
+		linByNameType.set(key, arr);
+	}
+
+	for (const [key, winDevList] of winByNameType) {
+		const linDevList = linByNameType.get(key);
+		// Only auto-match when exactly one device on each side with this name+type
+		if (winDevList.length === 1 && linDevList?.length === 1) {
+			const winDev = winDevList[0];
+			const linDev = linDevList[0];
+			matchedWinMacs.add(winDev.address.toUpperCase());
+			matchedLinuxMacs.add(linDev.address.toUpperCase());
+			const comparison = compareKeys(winDev, linDev);
+			paired.push({
+				windowsDevice: winDev,
+				linuxDevice: linDev,
+				controllerAddress,
+				comparison
+			});
+		}
+	}
+
 	// Collect remaining unmatched devices
 	for (const winDev of winDevices) {
 		if (!matchedWinMacs.has(winDev.address.toUpperCase())) {
@@ -401,6 +445,18 @@ export function matchAllDevices(
 			(b.windowsController?.devices.length ?? 0) + (b.linuxController?.devices.length ?? 0);
 		return bCount - aCount;
 	});
+
+	// Sort devices alphabetically by name, falling back to MAC address
+	const deviceSortKey = (d: BluetoothDevice) =>
+		(d.name ?? d.address).toLowerCase();
+	const pairSort = (a: MatchedDevicePair, b: MatchedDevicePair) =>
+		deviceSortKey(a.windowsDevice).localeCompare(deviceSortKey(b.windowsDevice));
+	const unmatchedSort = (a: UnmatchedDevice, b: UnmatchedDevice) =>
+		deviceSortKey(a.device).localeCompare(deviceSortKey(b.device));
+
+	result.needsSync.sort(pairSort);
+	result.alreadySynced.sort(pairSort);
+	result.unmatched.sort(unmatchedSort);
 
 	return result;
 }

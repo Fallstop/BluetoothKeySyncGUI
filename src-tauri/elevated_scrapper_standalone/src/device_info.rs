@@ -198,13 +198,36 @@ impl DeviceInfo {
     }
 
     pub fn set_le_pairing_data(&mut self, data: BluetoothLowEnergyKey) {
+        // Cross-role detection: Windows always stores LE keys as long_term_key (no
+        // role distinction), while Linux BlueZ uses PeripheralLongTermKey when the
+        // remote device is a peripheral. When the incoming data has one slot filled
+        // and the existing file has the other, remap to preserve the target's role.
+        let existing_has_ltk = self.ini.section(Some("LongTermKey")).is_some();
+        let existing_has_peripheral = self.ini.section(Some("PeripheralLongTermKey")).is_some()
+            || self.ini.section(Some("SlaveLongTermKey")).is_some();
+
+        let incoming_has_ltk = data.long_term_key.is_some();
+        let incoming_has_peripheral = data.peripheral_long_term_key.is_some();
+
+        let (effective_ltk, effective_peripheral) =
+            if incoming_has_ltk && !incoming_has_peripheral && !existing_has_ltk && existing_has_peripheral {
+                // Source has LTK only, target has PeripheralLTK only → write to peripheral slot
+                (None, data.long_term_key.as_ref())
+            } else if !incoming_has_ltk && incoming_has_peripheral && existing_has_ltk && !existing_has_peripheral {
+                // Source has PeripheralLTK only, target has LTK only → write to LTK slot
+                (data.peripheral_long_term_key.as_ref(), None)
+            } else {
+                // Normal: same slots or both present — write as-is
+                (data.long_term_key.as_ref(), data.peripheral_long_term_key.as_ref())
+            };
+
         // Write LongTermKey
-        self.set_long_term_key("LongTermKey", data.long_term_key.as_ref());
+        self.set_long_term_key("LongTermKey", effective_ltk);
 
         // Write PeripheralLongTermKey (and SlaveLongTermKey if it already exists)
-        self.set_long_term_key("PeripheralLongTermKey", data.peripheral_long_term_key.as_ref());
+        self.set_long_term_key("PeripheralLongTermKey", effective_peripheral);
         if self.ini.section(Some("SlaveLongTermKey")).is_some() {
-            self.set_long_term_key("SlaveLongTermKey", data.peripheral_long_term_key.as_ref());
+            self.set_long_term_key("SlaveLongTermKey", effective_peripheral);
         }
 
         // Write signature keys separately (fixes the old bug that wrote local to both)

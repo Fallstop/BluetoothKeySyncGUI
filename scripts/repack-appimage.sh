@@ -22,13 +22,20 @@ if [ ! -d "$APPDIR" ]; then
     exit 1
 fi
 
-# Step 2: Download appimagetool if not cached
-if [ ! -x "$APPIMAGETOOL" ]; then
+# Step 2: Download and extract appimagetool if not cached
+# We extract it because the AppImage itself requires FUSE, which is unavailable in CI.
+APPIMAGETOOL_EXTRACTED="$CACHE_DIR/appimagetool-extracted/AppRun"
+if [ ! -x "$APPIMAGETOOL_EXTRACTED" ]; then
     echo "Downloading appimagetool (AppImageKit)..."
     mkdir -p "$CACHE_DIR"
     curl -fSL -o "$APPIMAGETOOL" \
         "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
     chmod +x "$APPIMAGETOOL"
+    echo "Extracting appimagetool (FUSE not required)..."
+    cd "$CACHE_DIR"
+    "$APPIMAGETOOL" --appimage-extract > /dev/null 2>&1
+    mv squashfs-root appimagetool-extracted
+    cd "$PROJECT_ROOT"
 fi
 
 # Step 3: Remove Tauri's .AppImage output (built with incompatible type2-runtime)
@@ -41,7 +48,7 @@ OUTPUT="$APPIMAGE_DIR/bluetooth-key-sync_${VERSION}_amd64.AppImage"
 
 # Step 5: Repack with legacy appimagetool
 echo "Repacking with appimagetool..."
-ARCH=x86_64 "$APPIMAGETOOL" --no-appstream "$APPDIR" "$OUTPUT"
+ARCH=x86_64 "$APPIMAGETOOL_EXTRACTED" --no-appstream "$APPDIR" "$OUTPUT"
 
 echo ""
 echo "=== Done! ==="

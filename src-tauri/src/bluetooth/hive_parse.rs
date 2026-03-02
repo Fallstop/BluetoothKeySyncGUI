@@ -108,7 +108,8 @@ pub async fn extract_hive_data(
                 if let Ok(Some(key)) = root_key.subpath(*key_path, &mut hive) {
                     for subkey in key.borrow().subkeys(&mut hive)
                         .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?.iter() {
-                        let controller_address = subkey.borrow().name().to_string();
+                        let controller_address = subkey.borrow().name().to_string()
+                            .replace(":", "").to_uppercase();
 
                         let devices = parse_controller_devices(&subkey.borrow(), &root_key, &mut hive)?;
                         let device_map = controller_devices.entry(controller_address).or_default();
@@ -126,14 +127,16 @@ pub async fn extract_hive_data(
                 if let Ok(Some(key)) = root_key.subpath(*key_path, &mut hive) {
                     for adapter_subkey in key.borrow().subkeys(&mut hive)
                         .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?.iter() {
-                        let controller_address = adapter_subkey.borrow().name().to_string();
+                        let controller_address = adapter_subkey.borrow().name().to_string()
+                            .replace(":", "").to_uppercase();
 
                         let device_map = controller_devices.entry(controller_address).or_default();
 
                         for device_subkey in adapter_subkey.borrow().subkeys(&mut hive)
                             .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?.iter() {
                             let device_key = device_subkey.borrow();
-                            let device_mac = device_key.name().to_string();
+                            let device_mac = device_key.name().to_string()
+                                .replace(":", "").to_uppercase();
                             let reg = RegValues::new(device_key.values());
 
                             if let Some(le_data) = parse_le_values(&reg) {

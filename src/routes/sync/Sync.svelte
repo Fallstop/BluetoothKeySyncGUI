@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { appSettings, btStore } from '@/state';
+	import { appSettings, btStore, windowsState } from '@/state';
 	import {
 		matchAllDevices,
 		initSelections,
@@ -23,17 +23,28 @@
 
 	let isRefreshing = $state(false);
 
-	async function refreshLinuxData() {
+	async function refreshData() {
 		if (isRefreshing) return;
 		isRefreshing = true;
 		try {
-			const [response] = await Promise.all([
-				rpc.linux.parse_local_config(appSettings.state.authMethod),
-				new Promise((r) => setTimeout(r, 500))
-			]);
-			if (response.type === 'Success') {
-				btStore.state.linux = response.data;
+			const hivePath = windowsState.state.lastWindowsHiveFile;
+			const promises: Promise<void>[] = [
+				rpc.linux.parse_local_config(appSettings.state.authMethod).then((response) => {
+					if (response.type === 'Success') {
+						btStore.state.linux = response.data;
+					}
+				})
+			];
+			if (hivePath) {
+				promises.push(
+					rpc.windows.parse_windows_hive(hivePath).then((response) => {
+						if (response.type === 'Success') {
+							btStore.state.windows = response.data;
+						}
+					})
+				);
 			}
+			await Promise.all([...promises, new Promise((r) => setTimeout(r, 500))]);
 		} finally {
 			isRefreshing = false;
 		}
@@ -240,7 +251,7 @@
 					Back
 				</button>
 				<div class="toolbar">
-					<button class="gf-btn ghost small" onclick={refreshLinuxData} disabled={isRefreshing} title="Refresh Linux Bluetooth data">
+					<button class="gf-btn ghost small" onclick={refreshData} disabled={isRefreshing} title="Refresh Bluetooth data">
 						<RefreshCw class="h-3.5 w-3.5 {isRefreshing ? 'animate-spin' : ''}" />
 						Refresh
 					</button>
