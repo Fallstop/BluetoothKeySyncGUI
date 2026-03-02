@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { enableSmoothScroll } from '$lib/smoothScroll';
+	import UpdateBanner from '$lib/components/UpdateBanner.svelte';
 	let { children } = $props();
 
 	let isHome = $derived(page.url.pathname === '/' || page.url.pathname === '/index.html');
@@ -14,6 +15,7 @@
 	});
 </script>
 <ModeWatcher defaultMode="dark" />
+<UpdateBanner />
 <div class="app-shell">
 	<svg class="noise-texture" aria-hidden="true">
 		<filter id="noise">

@@ -32,10 +32,13 @@ export type SyncRequest = { proposals: SyncProposal[]; windows_hive_path: string
 
 export type SyncResult = { success: boolean; applied_count: number; failed_count: number; errors: string[]; refreshed_linux: BluetoothData | null; refreshed_windows: BluetoothData | null }
 
-const ARGS_MAP = { 'linux':'{"cancel_linux_access":[],"parse_local_config":["auth_method"]}', 'sync':'{"apply_sync_proposals":["request"]}', 'windows':'{"parse_windows_hive":["path_str"]}' }
+export type UpdateInfo = { update_available: boolean; latest_version: string; release_url: string }
+
+const ARGS_MAP = { 'linux':'{"cancel_linux_access":[],"parse_local_config":["auth_method"]}', 'sync':'{"apply_sync_proposals":["request"]}', 'updates':'{"check_for_update":["current_version"]}', 'windows':'{"parse_windows_hive":["path_str"]}' }
 export type Router = { "linux": {cancel_linux_access: () => Promise<Message<null>>, 
 parse_local_config: (authMethod: string) => Promise<Message<BluetoothData>>},
 "sync": {apply_sync_proposals: (request: SyncRequest) => Promise<Message<SyncResult>>},
+"updates": {check_for_update: (currentVersion: string) => Promise<Message<UpdateInfo>>},
 "windows": {parse_windows_hive: (pathStr: string) => Promise<Message<BluetoothData>>} };
 
 

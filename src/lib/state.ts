@@ -6,10 +6,12 @@ export type AuthMethod = 'pkexec' | 'sudo_askpass';
 
 interface AppSettings extends State {
 	authMethod: AuthMethod;
+	dismissedUpdateVersion: string | null;
 }
 
 export const appSettings = new RuneStore<AppSettings>('appSettings', {
 	authMethod: 'pkexec',
+	dismissedUpdateVersion: null,
 }, {
 	autoStart: true,
 	saveOnChange: true,
