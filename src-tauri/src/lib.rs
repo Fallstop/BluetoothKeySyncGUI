@@ -29,10 +29,12 @@ pub fn run() {
             if let tauri::WindowEvent::Destroyed = event {
                 // Shut down the elevated worker when the app closes
                 let worker = elevated_worker::get_worker();
-                // Block on shutdown so the worker process is cleaned up before exit
-                let rt = tokio::runtime::Handle::current();
-                rt.block_on(async move {
-                    worker.shutdown().await;
+                // Use block_in_place to avoid panicking when blocking inside the Tokio runtime
+                tokio::task::block_in_place(|| {
+                    let rt = tokio::runtime::Handle::current();
+                    rt.block_on(async move {
+                        worker.shutdown().await;
+                    });
                 });
             }
         })

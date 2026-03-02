@@ -1,14 +1,9 @@
 <script lang="ts">
 	import '../app.css';
 	import { ModeWatcher } from "mode-watcher";
-	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
 	import { enableSmoothScroll } from '$lib/smoothScroll';
 	import UpdateBanner from '$lib/components/UpdateBanner.svelte';
 	let { children } = $props();
-
-	let isHome = $derived(page.url.pathname === '/' || page.url.pathname === '/index.html');
-	let isSyncPage = $derived(page.url.pathname.startsWith('/sync'));
 
 	$effect(() => {
 		return enableSmoothScroll();
@@ -23,14 +18,6 @@
 		</filter>
 		<rect width="100%" height="100%" filter="url(#noise)" />
 	</svg>
-	{#if !isHome && !isSyncPage}
-		<div class="app-header">
-			<button class="back-btn" onclick={() => goto('/')}>
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-				Back to Setup
-			</button>
-		</div>
-	{/if}
 	<div class="page-enter">
 		{@render children?.()}
 	</div>
@@ -55,14 +42,6 @@
 		opacity: 0.035;
 		pointer-events: none;
 		z-index: 0;
-	}
-
-	.app-header {
-		position: relative;
-		z-index: 1;
-		padding: 12px 20px;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-		background: rgba(255, 255, 255, 0.02);
 	}
 
 	.page-enter {

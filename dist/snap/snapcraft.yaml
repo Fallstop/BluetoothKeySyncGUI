@@ -21,6 +21,8 @@ apps:
   bluetooth-key-sync:
     command: usr/bin/bluetooth-key-sync
     extensions: [gnome]
+    environment:
+      WEBKIT_DISABLE_DMABUF_RENDERER: "1"
     plugs:
       - home
       - removable-media

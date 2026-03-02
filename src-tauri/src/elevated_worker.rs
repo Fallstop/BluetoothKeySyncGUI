@@ -10,8 +10,8 @@ use tokio::process::{Child, ChildStdin, ChildStdout};
 use tokio::sync::{oneshot, Mutex, Notify};
 
 use crate::elevated::{
-    find_askpass, flatpak_host_binary_path, is_elevated, is_flatpak, is_snap,
-    relative_command_path,
+    appimage_cleanup_binary, appimage_extract_binary, find_askpass, flatpak_host_binary_path,
+    is_appimage, is_elevated, is_flatpak, is_snap, relative_command_path,
 };
 
 static WORKER: OnceLock<ElevatedWorker> = OnceLock::new();
@@ -295,6 +295,82 @@ impl ElevatedWorker {
             };
         }
 
+        // AppImage: the FUSE mount is private to the current user, so root
+        // (via pkexec/sudo) cannot access binaries inside it. Copy the
+        // elevated worker binary to /tmp first.
+        if is_appimage() {
+            let real_path = appimage_extract_binary(path)
+                .map_err(|e| format!("AppImage: {}", e))?;
+
+            return match auth_method {
+                AuthMethod::Pkexec => {
+                    tokio::process::Command::new("pkexec")
+                        .arg(&real_path)
+                        .args(["serve", "--privileged"])
+                        .stdin(std::process::Stdio::piped())
+                        .stdout(std::process::Stdio::piped())
+                        .stderr(std::process::Stdio::piped())
+                        .spawn()
+                        .map_err(|e| format!("Failed to spawn pkexec (AppImage): {}", e))
+                }
+                AuthMethod::SudoAskpass => {
+                    let askpass = find_askpass().ok_or_else(|| {
+                        "No askpass program found. Cannot authenticate.".to_string()
+                    })?;
+
+                    let askpass_output = tokio::process::Command::new(&askpass)
+                        .arg("Bluetooth Key Sync needs root access to read Bluetooth keys")
+                        .output()
+                        .await
+                        .map_err(|e| format!("Failed to run askpass ({}): {}", askpass, e))?;
+
+                    if !askpass_output.status.success() {
+                        return Err("Authentication cancelled".to_string());
+                    }
+
+                    let mut validate = tokio::process::Command::new("sudo")
+                        .args(["-S", "-k", "--", "true"])
+                        .stdin(std::process::Stdio::piped())
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null())
+                        .spawn()
+                        .map_err(|e| format!("Failed to validate credentials: {}", e))?;
+
+                    if let Some(mut stdin) = validate.stdin.take() {
+                        let _ = stdin.write_all(&askpass_output.stdout).await;
+                        let _ = stdin.write_all(b"\n").await;
+                        let _ = stdin.flush().await;
+                    }
+
+                    let validate_result = tokio::time::timeout(
+                        std::time::Duration::from_secs(3),
+                        validate.wait(),
+                    )
+                    .await;
+
+                    match validate_result {
+                        Ok(Ok(status)) if status.success() => {}
+                        Ok(Ok(_)) => return Err("Incorrect password".to_string()),
+                        Ok(Err(e)) => return Err(format!("Failed to validate password: {}", e)),
+                        Err(_) => {
+                            let _ = validate.kill().await;
+                            return Err("Incorrect password".to_string());
+                        }
+                    }
+
+                    tokio::process::Command::new("sudo")
+                        .arg("--")
+                        .arg(&real_path)
+                        .args(["serve", "--privileged"])
+                        .stdin(std::process::Stdio::piped())
+                        .stdout(std::process::Stdio::piped())
+                        .stderr(std::process::Stdio::piped())
+                        .spawn()
+                        .map_err(|e| format!("Failed to spawn sudo (AppImage): {}", e))
+                }
+            };
+        }
+
         if is_elevated() {
             return tokio::process::Command::new(path)
                 .args(["serve", "--privileged"])
@@ -468,6 +544,11 @@ impl ElevatedWorker {
         inner.stdin = None;
         inner.pending.clear();
         inner.state = WorkerState::Dead;
+
+        // Clean up temp binary if we extracted one for AppImage
+        if is_appimage() {
+            appimage_cleanup_binary();
+        }
     }
 }
 

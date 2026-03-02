@@ -30,6 +30,51 @@ pub fn is_snap() -> bool {
     std::env::var("SNAP").is_ok()
 }
 
+/// Check if running inside an AppImage.
+/// The AppImage runtime sets the `APPIMAGE` environment variable.
+pub fn is_appimage() -> bool {
+    std::env::var("APPIMAGE").is_ok()
+}
+
+/// Copy the elevated worker binary out of the AppImage FUSE mount to a real
+/// filesystem path that root can access. The AppImage FUSE mount at
+/// `/tmp/.mount_*` is only visible to the mounting user, so pkexec/sudo
+/// running as root cannot access it.
+///
+/// Copies to `/tmp/bluetooth-key-sync-elevated_scrapper` with mode 0755.
+/// Returns the path to the copied binary.
+pub fn appimage_extract_binary(source: &std::path::Path) -> Result<PathBuf, String> {
+    let dest = PathBuf::from("/tmp/bluetooth-key-sync-elevated_scrapper");
+
+    std::fs::copy(source, &dest).map_err(|e| {
+        format!(
+            "AppImage: failed to copy elevated binary from {} to {}: {}",
+            source.display(),
+            dest.display(),
+            e
+        )
+    })?;
+
+    // Ensure the copy is executable
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&dest, std::fs::Permissions::from_mode(0o755)).map_err(|e| {
+            format!("AppImage: failed to set permissions on {}: {}", dest.display(), e)
+        })?;
+    }
+
+    Ok(dest)
+}
+
+/// Clean up the temporary elevated binary extracted for AppImage.
+pub fn appimage_cleanup_binary() {
+    let dest = std::path::Path::new("/tmp/bluetooth-key-sync-elevated_scrapper");
+    if dest.exists() {
+        let _ = std::fs::remove_file(dest);
+    }
+}
+
 /// Resolve the host-visible path to the elevated scrapper binary when running
 /// inside a Flatpak sandbox. Uses `flatpak-spawn --host flatpak info --show-location`
 /// to find the Flatpak installation path, then constructs the path to the binary
